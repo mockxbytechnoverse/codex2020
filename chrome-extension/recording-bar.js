@@ -320,9 +320,27 @@ class RecordingBar {
                 this.pointerElement = null;
                 this.rippleElement = null;
                 this.mousePosition = { x: 0, y: 0 };
+                this.isDrawing = false;
+                this.currentPath = null;
+                this.drawingContainer = null;
+                this.lastDrawPoint = null;
             }
 
             create() {
+                // Create drawing container (SVG for smooth lines)
+                this.drawingContainer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                this.drawingContainer.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    pointer-events: none;
+                    z-index: 999997;
+                    display: none;
+                `;
+                document.body.appendChild(this.drawingContainer);
+                
                 // Create laser pointer element
                 this.pointerElement = document.createElement('div');
                 this.pointerElement.className = 'codex-laser-pointer';
@@ -405,10 +423,26 @@ class RecordingBar {
                     if (!this.isEnabled) return;
                     this.mousePosition = { x: e.clientX, y: e.clientY };
                     this.updatePosition();
+                    
+                    // Handle drawing while dragging
+                    if (this.isDrawing) {
+                        this.drawLine(e.clientX, e.clientY);
+                    }
+                });
+                
+                document.addEventListener('mousedown', (e) => {
+                    if (!this.isEnabled) return;
+                    this.startDrawing(e.clientX, e.clientY);
+                });
+                
+                document.addEventListener('mouseup', (e) => {
+                    if (!this.isEnabled) return;
+                    this.stopDrawing();
+                    this.createRipple();
                 });
                 
                 document.addEventListener('click', (e) => {
-                    if (!this.isEnabled) return;
+                    if (!this.isEnabled || this.isDrawing) return;
                     this.createRipple();
                 });
             }
@@ -426,17 +460,68 @@ class RecordingBar {
                 this.rippleElement.style.animation = 'laserRipple 0.6s ease-out';
             }
 
+            startDrawing(x, y) {
+                this.isDrawing = true;
+                this.lastDrawPoint = { x, y };
+                
+                // Create new path element
+                this.currentPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                this.currentPath.setAttribute('stroke', '#ff0000');
+                this.currentPath.setAttribute('stroke-width', '3');
+                this.currentPath.setAttribute('stroke-linecap', 'round');
+                this.currentPath.setAttribute('stroke-linejoin', 'round');
+                this.currentPath.setAttribute('fill', 'none');
+                this.currentPath.setAttribute('opacity', '0.8');
+                this.currentPath.setAttribute('d', `M ${x} ${y}`);
+                
+                this.drawingContainer.appendChild(this.currentPath);
+                
+                // Auto-fade the line after 3 seconds
+                setTimeout(() => {
+                    if (this.currentPath && this.currentPath.parentNode) {
+                        this.currentPath.style.transition = 'opacity 1s ease-out';
+                        this.currentPath.style.opacity = '0';
+                        setTimeout(() => {
+                            if (this.currentPath && this.currentPath.parentNode) {
+                                this.currentPath.remove();
+                            }
+                        }, 1000);
+                    }
+                }, 3000);
+            }
+
+            drawLine(x, y) {
+                if (!this.isDrawing || !this.currentPath || !this.lastDrawPoint) return;
+                
+                // Add line to current path
+                const currentD = this.currentPath.getAttribute('d');
+                this.currentPath.setAttribute('d', currentD + ` L ${x} ${y}`);
+                
+                this.lastDrawPoint = { x, y };
+            }
+
+            stopDrawing() {
+                this.isDrawing = false;
+                this.currentPath = null;
+                this.lastDrawPoint = null;
+            }
+
             enable() {
                 if (!this.pointerElement) this.create();
                 this.isEnabled = true;
                 this.pointerElement.style.display = 'block';
+                this.drawingContainer.style.display = 'block';
                 this.updatePosition();
             }
 
             disable() {
                 this.isEnabled = false;
+                this.isDrawing = false;
                 if (this.pointerElement) {
                     this.pointerElement.style.display = 'none';
+                }
+                if (this.drawingContainer) {
+                    this.drawingContainer.style.display = 'none';
                 }
             }
 
@@ -454,6 +539,10 @@ class RecordingBar {
                 if (this.pointerElement) {
                     this.pointerElement.remove();
                     this.pointerElement = null;
+                }
+                if (this.drawingContainer) {
+                    this.drawingContainer.remove();
+                    this.drawingContainer = null;
                 }
             }
         }
