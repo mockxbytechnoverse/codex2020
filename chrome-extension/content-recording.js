@@ -14,9 +14,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         startRecordingWithStreamId(message.streamId, message.description);
         sendResponse({ success: true });
     } else if (message.type === 'START_DESKTOP_RECORDING_WITH_STREAM_ID') {
+        console.log("Content-recording: Starting desktop recording with stream ID:", message.streamId);
         startDesktopRecordingWithStreamId(message.streamId, message.description)
-            .then(() => sendResponse({ success: true }))
-            .catch((error) => sendResponse({ success: false, error: error.message }));
+            .then(() => {
+                console.log("Content-recording: Desktop recording started successfully");
+                sendResponse({ success: true });
+            })
+            .catch((error) => {
+                console.error("Content-recording: Desktop recording failed:", error);
+                sendResponse({ success: false, error: error.message });
+            });
         return true;
     } else if (message.type === 'STOP_RECORDING') {
         stopRecording();
@@ -104,7 +111,7 @@ async function startRecordingWithStreamId(streamId, description) {
             
             // Clear recording state
             chrome.storage.local.set({ isRecording: false });
-            chrome.storage.local.remove(['desktopRecording']);
+            chrome.storage.local.remove(['desktopRecording', 'desktopRecordingTabId']);
             
             // Hide recording bar
             if (window.codexRecordingBar) {
@@ -154,8 +161,12 @@ async function startRecordingWithStreamId(streamId, description) {
 }
 
 async function startDesktopRecordingWithStreamId(streamId, description) {
+    console.log("Content-recording: startDesktopRecordingWithStreamId called with:", { streamId, description });
+    
     try {
         recordingDescription = description || '';
+        
+        console.log("Content-recording: Setting up constraints for desktop recording");
         
         // Get user media with the desktop stream ID
         const constraints = {
@@ -171,29 +182,45 @@ async function startDesktopRecordingWithStreamId(streamId, description) {
             }
         };
         
+        console.log("Content-recording: Requesting getUserMedia for desktop with constraints:", constraints);
+        console.log("Content-recording: Stream ID type:", typeof streamId, "Value:", streamId);
+        
+        // Validate stream ID before using it
+        if (!streamId || typeof streamId !== 'string') {
+            throw new Error('Invalid stream ID provided: ' + streamId);
+        }
+        
         recordingStream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        console.log("Content-recording: Got desktop recording stream:", recordingStream);
         
         // Create MediaRecorder
         mediaRecorder = new MediaRecorder(recordingStream, {
             mimeType: 'video/webm;codecs=vp9'
         });
         
+        console.log("Content-recording: Created MediaRecorder for desktop recording");
+        
         recordedChunks = [];
         recordingStartTime = Date.now();
         
         mediaRecorder.ondataavailable = (event) => {
+            console.log("Content-recording: Desktop data available, size:", event.data.size);
             if (event.data.size > 0) {
                 recordedChunks.push(event.data);
+                console.log("Content-recording: Desktop total chunks:", recordedChunks.length);
             }
         };
         
         mediaRecorder.onstop = async () => {
+            console.log("Content-recording: Desktop recording stopped, total chunks:", recordedChunks.length);
             const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            console.log("Content-recording: Created desktop blob, size:", blob.size);
             await saveRecording(blob);
             
             // Clear recording state
             chrome.storage.local.set({ isRecording: false });
-            chrome.storage.local.remove(['desktopRecording']);
+            chrome.storage.local.remove(['desktopRecording', 'desktopRecordingTabId']);
             
             // Hide recording bar
             if (window.codexRecordingBar) {
@@ -215,7 +242,10 @@ async function startDesktopRecordingWithStreamId(streamId, description) {
         };
         
         // Start recording
+        console.log("Content-recording: Starting desktop MediaRecorder");
         mediaRecorder.start(1000); // Collect data every second
+        
+        console.log("Content-recording: Desktop recording started successfully, state:", mediaRecorder.state);
         
         // Show notification
         chrome.runtime.sendMessage({
@@ -229,7 +259,12 @@ async function startDesktopRecordingWithStreamId(streamId, description) {
         });
         
     } catch (error) {
-        console.error('Error starting desktop recording with stream ID:', error);
+        console.error('Content-recording: Error starting desktop recording with stream ID:', error);
+        console.error('Content-recording: Desktop error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+        });
         throw error;
     }
 }
@@ -246,7 +281,7 @@ function stopRecording() {
     
     // Always clear recording state when stopping
     chrome.storage.local.set({ isRecording: false });
-    chrome.storage.local.remove(['desktopRecording']);
+    chrome.storage.local.remove(['desktopRecording', 'desktopRecordingTabId']);
 }
 
 async function saveRecording(blob) {

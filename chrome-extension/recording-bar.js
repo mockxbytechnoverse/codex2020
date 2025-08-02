@@ -158,18 +158,25 @@ class RecordingBar {
     }
 
     show() {
+        console.log("Recording-bar: show() called");
         if (!this.barElement) {
+            console.log("Recording-bar: Creating new bar element");
             this.create();
+        } else {
+            console.log("Recording-bar: Bar element already exists");
         }
         this.isRecording = true;
         this.recordingStartTime = Date.now();
         this.startTimer();
+        
+        console.log("Recording-bar: Bar should now be visible");
         
         // Update text after countdown
         setTimeout(() => {
             const textElement = this.barElement.querySelector('.codex-recording-text');
             if (textElement) {
                 textElement.textContent = 'Recording';
+                console.log("Recording-bar: Updated text to 'Recording'");
             }
         }, 1000);
     }
@@ -210,6 +217,8 @@ class RecordingBar {
     }
 
     togglePause() {
+        console.log("Recording-bar: Toggle pause clicked");
+        
         this.isPaused = !this.isPaused;
         const pauseBtn = document.getElementById('codex-pause-btn');
         
@@ -230,25 +239,18 @@ class RecordingBar {
             pauseBtn.title = 'Pause';
         }
         
-        // Check if desktop or tab recording
-        chrome.storage.local.get(['desktopRecording'], (result) => {
-            if (result.desktopRecording && result.desktopRecording.isActive) {
-                // For desktop recording, send to popup
-                chrome.runtime.sendMessage({
-                    type: 'TOGGLE_DESKTOP_PAUSE',
-                    isPaused: this.isPaused
-                });
-            } else {
-                // For tab recording, send to content script
-                chrome.runtime.sendMessage({
-                    type: 'PAUSE_RECORDING',
-                    isPaused: this.isPaused
-                });
-            }
+        // Route through background script for all recordings
+        chrome.runtime.sendMessage({
+            type: 'PAUSE_RECORDING_FROM_BAR',
+            isPaused: this.isPaused
+        }, (response) => {
+            console.log("Recording-bar: Pause response:", response);
         });
     }
 
     toggleMute() {
+        console.log("Recording-bar: Toggle mute clicked");
+        
         const muteBtn = document.getElementById('codex-mute-btn');
         const isMuted = muteBtn.title === 'Unmute';
         
@@ -268,41 +270,25 @@ class RecordingBar {
             muteBtn.title = 'Mute';
         }
         
-        // Check if desktop or tab recording
-        chrome.storage.local.get(['desktopRecording'], (result) => {
-            if (result.desktopRecording && result.desktopRecording.isActive) {
-                // For desktop recording, send to popup
-                chrome.runtime.sendMessage({
-                    type: 'TOGGLE_DESKTOP_MUTE',
-                    isMuted: !isMuted
-                });
-            } else {
-                // For tab recording, send to content script  
-                chrome.runtime.sendMessage({
-                    type: 'TOGGLE_MUTE',
-                    isMuted: !isMuted
-                });
-            }
+        // Route through background script for all recordings
+        chrome.runtime.sendMessage({
+            type: 'MUTE_RECORDING_FROM_BAR',
+            isMuted: !isMuted
+        }, (response) => {
+            console.log("Recording-bar: Mute response:", response);
         });
     }
 
     stopRecording() {
-        // Check if this is a desktop recording or tab recording
-        chrome.storage.local.get(['desktopRecording'], (result) => {
-            if (result.desktopRecording && result.desktopRecording.isActive) {
-                // For desktop recording, send message to popup/window
-                chrome.runtime.sendMessage({
-                    type: 'STOP_DESKTOP_RECORDING'
-                }, () => {
-                    this.hide();
-                });
-            } else {
-                // For tab recording, send stop message to content script
-                chrome.runtime.sendMessage({
-                    type: 'STOP_RECORDING_FROM_BAR'
-                }, () => {
-                    this.hide();
-                });
+        console.log("Recording-bar: Stop recording clicked");
+        
+        // Always route through background script - it will handle both desktop and tab recording
+        chrome.runtime.sendMessage({
+            type: 'STOP_RECORDING_FROM_BAR'
+        }, (response) => {
+            console.log("Recording-bar: Stop recording response:", response);
+            if (response && response.success) {
+                this.hide();
             }
         });
     }
@@ -313,13 +299,18 @@ window.codexRecordingBar = new RecordingBar();
 
 // Listen for messages from extension
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log("Recording-bar: Received message", message.type);
+    
     if (message.type === 'SHOW_RECORDING_BAR') {
+        console.log("Recording-bar: Showing recording bar");
         window.codexRecordingBar.show();
         sendResponse({ success: true });
     } else if (message.type === 'HIDE_RECORDING_BAR') {
+        console.log("Recording-bar: Hiding recording bar");
         window.codexRecordingBar.hide();
         sendResponse({ success: true });
     } else if (message.type === 'DESKTOP_RECORDING_STOPPED') {
+        console.log("Recording-bar: Desktop recording stopped, hiding bar");
         window.codexRecordingBar.hide();
         sendResponse({ success: true });
     }

@@ -201,12 +201,14 @@ function showCountdown(callback) {
 
 // Start screen recording
 async function startScreenRecording(recordCurrentTab = false) {
+    console.log('Popup: startScreenRecording called with recordCurrentTab:', recordCurrentTab);
     try {
         // Save description
         saveDescription();
         
         // Get active tab
         const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        console.log('Popup: Got active tab:', activeTab.id, activeTab.url);
         
         if (recordCurrentTab) {
             // For tab recording, we need to use a different approach
@@ -229,53 +231,52 @@ async function startScreenRecording(recordCurrentTab = false) {
                 });
             });
         } else {
-            // For desktop recording, use chrome.desktopCapture
-            showCountdown(() => {
-                // Get stream ID via desktopCapture API
-                chrome.runtime.sendMessage({
-                    type: 'REQUEST_DESKTOP_CAPTURE'
-                }, async (response) => {
-                    if (response && response.streamId) {
-                        // Inject recording bar and content-recording script into active tab first
-                        await chrome.scripting.executeScript({
-                            target: { tabId: activeTab.id },
-                            files: ['recording-bar.js', 'content-recording.js']
-                        });
-                        
-                        // Start recording in the content script with desktop stream
-                        chrome.tabs.sendMessage(activeTab.id, {
-                            type: 'START_DESKTOP_RECORDING_WITH_STREAM_ID',
-                            streamId: response.streamId,
-                            description: descriptionInput.value.trim()
-                        }, async (startResponse) => {
-                            if (startResponse && startResponse.success) {
-                                // Show recording bar
-                                await chrome.tabs.sendMessage(activeTab.id, {
-                                    type: 'SHOW_RECORDING_BAR'
-                                });
-                                
-                                // Update UI and close popup
-                                isRecording = true;
-                                recordingStartTime = Date.now();
-                                chrome.storage.local.set({ 
-                                    isRecording: true,
-                                    desktopRecording: {
-                                        isActive: true,
-                                        startTime: Date.now(),
-                                        description: descriptionInput.value.trim()
-                                    }
-                                });
-                                
-                                // Close popup
-                                window.close();
-                            } else {
-                                showError('Failed to start desktop recording');
-                            }
-                        });
+            // For desktop recording, use chrome.desktopCapture - no countdown needed
+            console.log('Popup: Starting desktop recording without countdown');
+            
+            // Prevent multiple calls
+            if (window.desktopRecordingInProgress) {
+                console.log('Popup: Desktop recording already in progress, ignoring');
+                return;
+            }
+            window.desktopRecordingInProgress = true;
+            
+            // Send desktop capture request - background will handle everything
+            console.log('Popup: Sending REQUEST_DESKTOP_CAPTURE message with description');
+            
+            chrome.runtime.sendMessage({
+                type: 'REQUEST_DESKTOP_CAPTURE',
+                description: descriptionInput.value.trim()
+            }, (response) => {
+                console.log('Popup: Desktop capture setup response:', response);
+                window.desktopRecordingInProgress = false; // Reset flag
+                
+                if (chrome.runtime.lastError) {
+                    console.error('Popup: Runtime error in desktop capture:', chrome.runtime.lastError);
+                    showError('Desktop capture request failed: ' + chrome.runtime.lastError.message);
+                    return;
+                }
+                
+                if (response && response.success) {
+                    console.log('Popup: Desktop recording setup successful, closing popup');
+                    
+                    // Update popup UI state
+                    isRecording = true;
+                    recordingStartTime = Date.now();
+                    
+                    // Close popup after a short delay
+                    setTimeout(() => {
+                        console.log('Popup: Closing popup after successful desktop recording setup');
+                        window.close();
+                    }, 1000);
+                } else {
+                    console.error('Popup: Desktop recording setup failed:', response);
+                    if (response && response.error) {
+                        showError('Desktop recording failed: ' + response.error);
                     } else {
-                        showError('Failed to get desktop capture permission');
+                        showError('Desktop recording was cancelled or failed');
                     }
-                });
+                }
             });
         }
         
@@ -348,12 +349,16 @@ recordTabCard.addEventListener('click', async () => {
 
 // Record desktop card
 recordDesktopCard.addEventListener('click', async () => {
+    console.log('Popup: Desktop recording button clicked, isRecording:', isRecording);
     if (!isRecording) {
+        console.log('Popup: Calling startScreenRecording(false) for desktop');
         const success = await startScreenRecording(false); // false = record desktop
+        console.log('Popup: startScreenRecording returned:', success);
         if (!success) {
-            console.error('Failed to start recording');
+            console.error('Popup: Failed to start desktop recording');
         }
     } else {
+        console.log('Popup: Already recording, stopping');
         stopRecording();
     }
 });

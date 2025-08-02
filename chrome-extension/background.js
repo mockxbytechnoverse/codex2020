@@ -198,15 +198,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "STOP_RECORDING_FROM_BAR") {
     console.log("Background: Stopping recording from recording bar");
     
-    // Get the sender tab
-    const tabId = sender.tab ? sender.tab.id : null;
-    
-    if (tabId) {
-      // Send stop message to content script
-      chrome.tabs.sendMessage(tabId, {
-        type: 'STOP_RECORDING'
-      });
-    }
+    // Check if it's desktop recording or tab recording
+    chrome.storage.local.get(['desktopRecording', 'isRecording'], (result) => {
+      if (result.desktopRecording && result.desktopRecording.isActive) {
+        console.log("Background: Stopping desktop recording from bar");
+        
+        // For desktop recording, find the tab with active recording
+        chrome.storage.local.get(['desktopRecordingTabId'], (tabData) => {
+          const recordingTabId = tabData.desktopRecordingTabId;
+          if (recordingTabId) {
+            chrome.tabs.sendMessage(recordingTabId, {
+              type: 'STOP_RECORDING'
+            }, (response) => {
+              console.log("Background: Desktop recording stop response:", response);
+              
+              // Also send message to all tabs to hide recording bars
+              chrome.tabs.query({}, (allTabs) => {
+                allTabs.forEach(tab => {
+                  chrome.tabs.sendMessage(tab.id, {
+                    type: 'DESKTOP_RECORDING_STOPPED'
+                  }).catch(() => {}); // Ignore errors for tabs without the script
+                });
+              });
+            });
+          }
+        });
+      } else {
+        console.log("Background: Stopping tab recording from bar");
+        
+        // For tab recording, get the sender tab or find active recording tab
+        const tabId = sender.tab ? sender.tab.id : null;
+        
+        if (tabId) {
+          chrome.tabs.sendMessage(tabId, {
+            type: 'STOP_RECORDING'
+          });
+        }
+      }
+    });
     
     if (sendResponse) {
       sendResponse({ success: true });
@@ -404,7 +433,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
-  // Handle desktop capture request
+  // Handle desktop capture request and complete setup
   if (message.type === "REQUEST_DESKTOP_CAPTURE") {
     console.log("Background: Requesting desktop capture from sender:", sender);
     
@@ -416,32 +445,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           chrome.desktopCapture.chooseDesktopMedia(
             ['screen', 'window', 'tab'],
             tabs[0],
-            (streamId) => {
+            async (streamId) => {
               if (streamId) {
-                console.log("Desktop capture granted, streamId:", streamId);
-                sendResponse({ streamId: streamId });
+                console.log("Background: Desktop capture granted, streamId:", streamId);
+                
+                // Instead of just returning stream ID, handle the entire setup here
+                await handleDesktopRecordingSetup(streamId, tabs[0].id, message.description || '');
+                sendResponse({ success: true });
               } else {
-                console.log("Desktop capture cancelled");
-                sendResponse({ streamId: null });
+                console.log("Background: Desktop capture cancelled");
+                sendResponse({ success: false, error: "Desktop capture cancelled" });
               }
             }
           );
         } else {
-          console.error("No active tab found for desktop capture");
-          sendResponse({ streamId: null, error: "No active tab found" });
+          console.error("Background: No active tab found for desktop capture");
+          sendResponse({ success: false, error: "No active tab found" });
         }
       });
     } else {
       chrome.desktopCapture.chooseDesktopMedia(
         ['screen', 'window', 'tab'],
         sender.tab,
-        (streamId) => {
+        async (streamId) => {
           if (streamId) {
-            console.log("Desktop capture granted, streamId:", streamId);
-            sendResponse({ streamId: streamId });
+            console.log("Background: Desktop capture granted, streamId:", streamId);
+            await handleDesktopRecordingSetup(streamId, sender.tab.id, message.description || '');
+            sendResponse({ success: true });
           } else {
-            console.log("Desktop capture cancelled");
-            sendResponse({ streamId: null });
+            console.log("Background: Desktop capture cancelled");
+            sendResponse({ success: false, error: "Desktop capture cancelled" });
           }
         }
       );
@@ -449,7 +482,176 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
+  // Handle pause recording from recording bar
+  if (message.type === "PAUSE_RECORDING_FROM_BAR") {
+    console.log("Background: Pausing recording from recording bar");
+    
+    // Check if it's desktop recording or tab recording
+    chrome.storage.local.get(['desktopRecording'], (result) => {
+      if (result.desktopRecording && result.desktopRecording.isActive) {
+        console.log("Background: Pausing desktop recording from bar");
+        
+        // For desktop recording, find the tab with active recording
+        chrome.storage.local.get(['desktopRecordingTabId'], (tabData) => {
+          const recordingTabId = tabData.desktopRecordingTabId;
+          if (recordingTabId) {
+            chrome.tabs.sendMessage(recordingTabId, {
+              type: 'PAUSE_RECORDING',
+              isPaused: message.isPaused
+            });
+          }
+        });
+      } else {
+        console.log("Background: Pausing tab recording from bar");
+        
+        // For tab recording, get the sender tab
+        const tabId = sender.tab ? sender.tab.id : null;
+        
+        if (tabId) {
+          chrome.tabs.sendMessage(tabId, {
+            type: 'PAUSE_RECORDING',
+            isPaused: message.isPaused
+          });
+        }
+      }
+    });
+    
+    if (sendResponse) {
+      sendResponse({ success: true });
+    }
+    return true;
+  }
+  
+  // Handle mute recording from recording bar
+  if (message.type === "MUTE_RECORDING_FROM_BAR") {
+    console.log("Background: Muting recording from recording bar");
+    
+    // Check if it's desktop recording or tab recording
+    chrome.storage.local.get(['desktopRecording'], (result) => {
+      if (result.desktopRecording && result.desktopRecording.isActive) {
+        console.log("Background: Muting desktop recording from bar");
+        
+        // For desktop recording, find the tab with active recording
+        chrome.storage.local.get(['desktopRecordingTabId'], (tabData) => {
+          const recordingTabId = tabData.desktopRecordingTabId;
+          if (recordingTabId) {
+            chrome.tabs.sendMessage(recordingTabId, {
+              type: 'TOGGLE_MUTE',
+              isMuted: message.isMuted
+            });
+          }
+        });
+      } else {
+        console.log("Background: Muting tab recording from bar");
+        
+        // For tab recording, get the sender tab
+        const tabId = sender.tab ? sender.tab.id : null;
+        
+        if (tabId) {
+          chrome.tabs.sendMessage(tabId, {
+            type: 'TOGGLE_MUTE',
+            isMuted: message.isMuted
+          });
+        }
+      }
+    });
+    
+    if (sendResponse) {
+      sendResponse({ success: true });
+    }
+    return true;
+  }
+  
 });
+
+// Handle desktop recording setup in background
+async function handleDesktopRecordingSetup(streamId, activeTabId, description) {
+  console.log("Background: Setting up desktop recording with streamId:", streamId, "activeTab:", activeTabId);
+  
+  try {
+    // Get all tabs to inject recording bar (desktop recording can be shown on any tab)
+    const allTabs = await chrome.tabs.query({});
+    console.log('Background: Found', allTabs.length, 'tabs for script injection');
+    
+    // Inject recording bar into all tabs
+    for (const tab of allTabs) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['recording-bar.js']
+        });
+        console.log('Background: Injected recording bar into tab', tab.id);
+      } catch (e) {
+        console.log('Background: Failed to inject into tab', tab.id, '(probably system tab)');
+      }
+    }
+    
+    // Inject content-recording script only into active tab
+    await chrome.scripting.executeScript({
+      target: { tabId: activeTabId },
+      files: ['content-recording.js']
+    });
+    console.log('Background: Injected content-recording script into active tab', activeTabId);
+    
+    // Start recording in the content script with desktop stream
+    console.log('Background: Sending START_DESKTOP_RECORDING_WITH_STREAM_ID to tab', activeTabId);
+    
+    const startResponse = await new Promise((resolve) => {
+      chrome.tabs.sendMessage(activeTabId, {
+        type: 'START_DESKTOP_RECORDING_WITH_STREAM_ID',
+        streamId: streamId,
+        description: description
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('Background: Error sending desktop recording message:', chrome.runtime.lastError);
+          resolve({ success: false, error: chrome.runtime.lastError.message });
+        } else {
+          resolve(response);
+        }
+      });
+    });
+    
+    console.log('Background: Desktop recording start response:', startResponse);
+    
+    if (startResponse && startResponse.success) {
+      console.log('Background: Desktop recording started successfully');
+      
+      // Show recording bar on all tabs
+      console.log('Background: Attempting to show recording bar on', allTabs.length, 'tabs');
+      for (const tab of allTabs) {
+        try {
+          console.log('Background: Sending SHOW_RECORDING_BAR to tab', tab.id);
+          await chrome.tabs.sendMessage(tab.id, {
+            type: 'SHOW_RECORDING_BAR'
+          });
+          console.log('Background: Successfully showed recording bar on tab', tab.id);
+        } catch (e) {
+          console.log('Background: Failed to show recording bar on tab', tab.id, 'Error:', e.message);
+        }
+      }
+      
+      // Update storage state
+      chrome.storage.local.set({ 
+        isRecording: true,
+        desktopRecording: {
+          isActive: true,
+          startTime: Date.now(),
+          description: description
+        },
+        desktopRecordingTabId: activeTabId // Store which tab has the recording
+      });
+      
+      console.log('Background: Desktop recording setup complete');
+      return true;
+    } else {
+      console.error('Background: Failed to start desktop recording:', startResponse);
+      throw new Error('Failed to start desktop recording: ' + (startResponse?.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Background: Error in desktop recording setup:', error);
+    throw error;
+  }
+}
 
 // Validate server identity
 async function validateServerIdentity(host, port) {
