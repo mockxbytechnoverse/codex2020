@@ -9,6 +9,8 @@ let recordingStream = null;
 let recordedChunks = [];
 let countdownInterval = null;
 let isPaused = false;
+let isMicrophoneMuted = true;
+let hasMicrophonePermission = false;
 
 // UI Elements
 const descriptionInput = document.getElementById('description');
@@ -28,14 +30,22 @@ const settingsBtn = document.getElementById('settings-btn');
 // Countdown Elements
 const countdownOverlay = document.getElementById('countdown-overlay');
 const countdownNumber = document.getElementById('countdown-number');
+const countdownSubtitle = document.getElementById('countdown-subtitle');
+
+// Bottom Control Elements
+const microphoneButton = document.getElementById('microphone-button');
+const permissionButton = document.getElementById('permission-button');
+const permissionText = document.getElementById('permission-text');
+const helpButton = document.getElementById('help-button');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     checkConnection();
     loadSavedDescription();
+    checkMicrophonePermission();
     
     // Check if already recording
-    chrome.storage.local.get(['isRecording'], (result) => {
+    chrome.storage.local.get(['isRecording', 'isMicrophoneMuted'], (result) => {
         if (result.isRecording) {
             // Check if there's actually an active recording
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -57,6 +67,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     chrome.storage.local.remove(['desktopRecording']);
                 }
             });
+        }
+        
+        // Restore mute state
+        if (result.isMicrophoneMuted !== undefined) {
+            isMicrophoneMuted = result.isMicrophoneMuted;
+            updateMicrophoneButton();
         }
     });
 });
@@ -179,6 +195,7 @@ function stopRecordingUI() {
 
 // Show countdown overlay
 function showCountdown(callback) {
+    updateCountdownSubtitle(); // Update subtitle based on microphone state
     countdownOverlay.classList.add('active');
     let count = 3;
     countdownNumber.textContent = count;
@@ -408,4 +425,224 @@ window.addEventListener('unload', () => {
         console.log('Popup closing but recording continues...');
     }
 });
+
+// Microphone permission button click
+permissionButton.addEventListener('click', handlePermissionClick);
+
+// Microphone toggle button click
+microphoneButton.addEventListener('click', handleMicrophoneToggle);
+
+// Help button click
+helpButton.addEventListener('click', (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: 'https://browsertools.agentdesk.ai/' });
+});
+
+// Check microphone permission status
+async function checkMicrophonePermission() {
+    try {
+        // First check if permission was previously granted and stored
+        const stored = await chrome.storage.local.get(['hasMicrophonePermission']);
+        if (stored.hasMicrophonePermission) {
+            hasMicrophonePermission = true;
+            updatePermissionUI(true);
+            return;
+        }
+        
+        // Try to check current permission status
+        try {
+            const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+            
+            if (permissionStatus.state === 'granted') {
+                hasMicrophonePermission = true;
+                chrome.storage.local.set({ hasMicrophonePermission: true });
+                updatePermissionUI(true);
+            } else {
+                hasMicrophonePermission = false;
+                updatePermissionUI(false);
+            }
+            
+            // Listen for permission changes
+            permissionStatus.addEventListener('change', () => {
+                if (permissionStatus.state === 'granted') {
+                    hasMicrophonePermission = true;
+                    chrome.storage.local.set({ hasMicrophonePermission: true });
+                    updatePermissionUI(true);
+                } else {
+                    hasMicrophonePermission = false;
+                    chrome.storage.local.set({ hasMicrophonePermission: false });
+                    updatePermissionUI(false);
+                }
+            });
+        } catch (permError) {
+            // Permissions API might not work in extension popup context
+            console.log('Permissions API not available in popup context');
+            hasMicrophonePermission = false;
+            updatePermissionUI(false);
+        }
+    } catch (error) {
+        console.error('Error checking microphone permission:', error);
+        hasMicrophonePermission = false;
+        updatePermissionUI(false);
+    }
+}
+
+// Handle permission button click
+async function handlePermissionClick() {
+    if (hasMicrophonePermission) {
+        // Permission already granted, do nothing
+        return;
+    }
+    
+    try {
+        // Get the current active tab
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tabs[0]) {
+            throw new Error('No active tab found');
+        }
+        
+        const currentTab = tabs[0];
+        
+        // Check if we can inject scripts into this tab
+        if (currentTab.url.startsWith('chrome://') || 
+            currentTab.url.startsWith('chrome-extension://') ||
+            currentTab.url.startsWith('edge://') ||
+            currentTab.url.startsWith('about:')) {
+            // Can't inject into browser pages, show instruction
+            showPermissionInstructions();
+            return;
+        }
+        
+        // Inject a script into the current tab to request microphone permission
+        const results = await chrome.scripting.executeScript({
+            target: { tabId: currentTab.id },
+            func: async () => {
+                try {
+                    // Request microphone permission in the context of the web page
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    // Stop the stream immediately as we just needed permission
+                    stream.getTracks().forEach(track => track.stop());
+                    return { success: true };
+                } catch (error) {
+                    return { success: false, error: error.name };
+                }
+            }
+        });
+        
+        const result = results[0].result;
+        if (result.success) {
+            // Permission granted, update UI and store state
+            hasMicrophonePermission = true;
+            isMicrophoneMuted = false; // Default to unmuted when permission is granted
+            chrome.storage.local.set({ 
+                hasMicrophonePermission: true,
+                isMicrophoneMuted: false
+            });
+            updatePermissionUI(true);
+            updateMicrophoneButton();
+            updateCountdownSubtitle();
+            
+            // Show success notification
+            chrome.notifications.create({
+                type: 'basic',
+                iconUrl: 'icon.svg',
+                title: 'Microphone Permission Granted',
+                message: 'You can now record audio during screen recordings!'
+            });
+        } else {
+            console.error('Microphone permission denied:', result.error);
+            if (result.error === 'NotAllowedError') {
+                showPermissionDeniedMessage();
+            } else {
+                showPermissionInstructions();
+            }
+        }
+    } catch (error) {
+        console.error('Error handling permission click:', error);
+        showPermissionInstructions();
+    }
+}
+
+// Show permission instructions to user
+function showPermissionInstructions() {
+    chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icon.svg',
+        title: 'Microphone Permission Required',
+        message: 'Please navigate to a regular website (like google.com) and click "Grant permission" again to enable microphone access.'
+    });
+}
+
+// Show permission denied message
+function showPermissionDeniedMessage() {
+    chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icon.svg',
+        title: 'Microphone Permission Denied',
+        message: 'Please allow microphone access in your browser settings or try again on a different website.'
+    });
+}
+
+// Update permission UI
+function updatePermissionUI(granted) {
+    if (granted) {
+        permissionButton.classList.add('granted');
+        permissionText.textContent = 'Permission granted';
+        permissionButton.querySelector('.permission-icon').textContent = '✅';
+        microphoneButton.classList.add('enabled');
+    } else {
+        permissionButton.classList.remove('granted');
+        permissionText.textContent = 'Grant permission';
+        permissionButton.querySelector('.permission-icon').textContent = '🔴';
+        microphoneButton.classList.remove('enabled');
+    }
+}
+
+// Handle microphone toggle
+function handleMicrophoneToggle() {
+    if (!hasMicrophonePermission) {
+        // No permission, can't toggle
+        return;
+    }
+    
+    isMicrophoneMuted = !isMicrophoneMuted;
+    chrome.storage.local.set({ isMicrophoneMuted });
+    updateMicrophoneButton();
+    updateCountdownSubtitle();
+    
+    // If recording is active, send message to toggle mute
+    if (isRecording) {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs[0]) {
+                chrome.runtime.sendMessage({
+                    type: 'TOGGLE_MUTE',
+                    tabId: tabs[0].id,
+                    isMuted: isMicrophoneMuted
+                });
+            }
+        });
+    }
+}
+
+// Update microphone button appearance
+function updateMicrophoneButton() {
+    if (isMicrophoneMuted) {
+        microphoneButton.classList.add('muted');
+        microphoneButton.innerHTML = '🔇';
+    } else {
+        microphoneButton.classList.remove('muted');
+        microphoneButton.innerHTML = '🎤';
+    }
+}
+
+// Update countdown subtitle based on microphone state
+function updateCountdownSubtitle() {
+    if (countdownSubtitle) {
+        if (isMicrophoneMuted) {
+            countdownSubtitle.innerHTML = 'Your microphone is currently <span class="muted">muted</span>.';
+        } else {
+            countdownSubtitle.innerHTML = 'Your microphone is currently <span style="color: #34c759;">enabled</span>.';
+        }
+    }
+}
 

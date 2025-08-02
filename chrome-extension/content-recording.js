@@ -4,6 +4,8 @@ let recordingStream = null;
 let recordedChunks = [];
 let recordingStartTime = null;
 let recordingDescription = '';
+let audioContext = null;
+let microphoneStream = null;
 
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -38,9 +40,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         sendResponse({ success: true });
     } else if (message.type === 'TOGGLE_MUTE') {
-        if (recordingStream) {
-            const audioTracks = recordingStream.getAudioTracks();
-            audioTracks.forEach(track => track.enabled = !message.isMuted);
+        if (microphoneStream) {
+            // Mute/unmute the microphone stream specifically
+            const micAudioTracks = microphoneStream.getAudioTracks();
+            micAudioTracks.forEach(track => track.enabled = !message.isMuted);
+            console.log("Content-recording: Microphone", message.isMuted ? "muted" : "unmuted");
         }
         sendResponse({ success: true });
     } else if (message.type === 'PING_RECORDING') {
@@ -60,8 +64,14 @@ async function startRecordingWithStreamId(streamId, description) {
         
         console.log("Content-recording: Setting up constraints for tab recording");
         
-        // Get user media with the stream ID
-        const constraints = {
+        // Check if microphone should be included
+        const { isMicrophoneMuted, hasMicrophonePermission } = await chrome.storage.local.get(['isMicrophoneMuted', 'hasMicrophonePermission']);
+        const includeMicrophone = !isMicrophoneMuted && hasMicrophonePermission;
+        
+        console.log("Content-recording: Audio settings:", { isMicrophoneMuted, hasMicrophonePermission, includeMicrophone });
+        
+        // Always get tab video and tab audio
+        const tabConstraints = {
             audio: {
                 mandatory: {
                     chromeMediaSource: 'tab',
@@ -79,9 +89,38 @@ async function startRecordingWithStreamId(streamId, description) {
             }
         };
         
-        console.log("Content-recording: Requesting getUserMedia with constraints:", constraints);
+        console.log("Content-recording: Requesting getUserMedia for tab with constraints:", tabConstraints);
         
-        recordingStream = await navigator.mediaDevices.getUserMedia(constraints);
+        recordingStream = await navigator.mediaDevices.getUserMedia(tabConstraints);
+        
+        // If microphone is enabled and we have permission, get microphone stream and mix it
+        if (includeMicrophone) {
+            try {
+                console.log("Content-recording: Requesting microphone stream");
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Create a new MediaStream that combines tab audio/video with microphone audio
+                audioContext = new AudioContext();
+                const tabAudioSource = audioContext.createMediaStreamSource(recordingStream);
+                const micAudioSource = audioContext.createMediaStreamSource(microphoneStream);
+                const destination = audioContext.createMediaStreamDestination();
+                
+                // Mix the audio sources
+                tabAudioSource.connect(destination);
+                micAudioSource.connect(destination);
+                
+                // Create new stream with tab video and mixed audio
+                const videoTracks = recordingStream.getVideoTracks();
+                const mixedAudioTracks = destination.stream.getAudioTracks();
+                
+                recordingStream = new MediaStream([...videoTracks, ...mixedAudioTracks]);
+                
+                console.log("Content-recording: Successfully mixed tab and microphone audio");
+            } catch (micError) {
+                console.warn("Content-recording: Failed to get microphone, using tab audio only:", micError);
+                // Continue with tab audio only
+            }
+        }
         
         console.log("Content-recording: Got recording stream:", recordingStream);
         
@@ -277,6 +316,18 @@ function stopRecording() {
     if (recordingStream) {
         recordingStream.getTracks().forEach(track => track.stop());
         recordingStream = null;
+    }
+    
+    // Clean up microphone stream
+    if (microphoneStream) {
+        microphoneStream.getTracks().forEach(track => track.stop());
+        microphoneStream = null;
+    }
+    
+    // Clean up audio context
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
     }
     
     // Always clear recording state when stopping

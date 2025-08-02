@@ -264,116 +264,6 @@
             opacity: 0.7;
         }
         
-        /* Bottom Controls */
-        .bottom-controls {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 16px 24px;
-            background: #f5f5f7;
-            border-top: 1px solid #e5e5e7;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .left-controls {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-        
-        .permission-button {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            border: none;
-            background: transparent;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 500;
-            color: #ff3b30;
-            transition: all 0.15s ease;
-            border-radius: 8px;
-        }
-        
-        .permission-button:hover {
-            background: rgba(255, 59, 48, 0.1);
-        }
-        
-        .permission-button.granted {
-            color: #34c759;
-        }
-        
-        .permission-button.granted:hover {
-            background: rgba(52, 199, 89, 0.1);
-        }
-        
-        .permission-icon {
-            font-size: 20px;
-        }
-        
-        .microphone-button {
-            width: 40px;
-            height: 40px;
-            border: none;
-            background: #ffffff;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            font-size: 20px;
-            color: #1d1d1f;
-            opacity: 0.3;
-            pointer-events: none;
-        }
-        
-        .microphone-button.enabled {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        
-        .microphone-button.enabled:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-        
-        .microphone-button.enabled:active {
-            transform: scale(0.95);
-        }
-        
-        .microphone-button.muted {
-            background: #ff3b30;
-            color: white;
-        }
-        
-        .help-button {
-            font-size: 16px;
-            font-weight: 500;
-            color: #1d1d1f;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 8px 12px;
-            border-radius: 8px;
-            transition: all 0.15s ease;
-        }
-        
-        .help-button:hover {
-            background: rgba(0, 0, 0, 0.04);
-        }
-        
-        /* Adjust main content padding to account for bottom controls */
-        .main-content {
-            padding-bottom: 80px;
-        }
-        
     </style>
 </head>
 <body>
@@ -401,7 +291,7 @@
         <!-- Capture Screenshot -->
         <div class="pill-button capture-screenshot" id="screenshot-card">
             <div class="icon">📸</div>
-            <div class="text">Capture Screenshoot</div>
+            <div class="text">Capture Screenshot</div>
         </div>
         
         <!-- Recording Row -->
@@ -429,7 +319,7 @@
     <div class="countdown-overlay" id="countdown-overlay">
         <div class="countdown-content">
             <div class="countdown-title">Preparing to record</div>
-            <div class="countdown-subtitle" id="countdown-subtitle">
+            <div class="countdown-subtitle">
                 Your microphone is currently <span class="muted">muted</span>.
             </div>
             <div class="countdown-number" id="countdown-number">3</div>
@@ -437,21 +327,6 @@
         </div>
     </div>
     
-    <!-- Bottom Controls -->
-    <div class="bottom-controls">
-        <div class="left-controls">
-            <button class="microphone-button" id="microphone-button" title="Toggle microphone">
-                🎤
-            </button>
-            <button class="permission-button" id="permission-button">
-                <span class="permission-icon">🔴</span>
-                <span id="permission-text">Grant permission</span>
-            </button>
-        </div>
-        <a href="#" class="help-button" id="help-button">
-            Help <span>💬</span>
-        </a>
-    </div>
     
     <script src="popup.js"></script>
 </body>
