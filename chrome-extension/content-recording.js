@@ -207,9 +207,15 @@ async function startDesktopRecordingWithStreamId(streamId, description) {
         
         console.log("Content-recording: Setting up constraints for desktop recording");
         
-        // Get user media with the desktop stream ID
-        const constraints = {
-            audio: false,
+        // Check if microphone should be included
+        const { isMicrophoneMuted, hasMicrophonePermission } = await chrome.storage.local.get(['isMicrophoneMuted', 'hasMicrophonePermission']);
+        const includeMicrophone = !isMicrophoneMuted && hasMicrophonePermission;
+        
+        console.log("Content-recording: Desktop audio settings:", { isMicrophoneMuted, hasMicrophonePermission, includeMicrophone });
+        
+        // Get desktop video stream (desktop capture doesn't support audio directly)
+        const desktopConstraints = {
+            audio: false, // Desktop capture doesn't support audio
             video: {
                 mandatory: {
                     chromeMediaSource: 'desktop',
@@ -221,7 +227,7 @@ async function startDesktopRecordingWithStreamId(streamId, description) {
             }
         };
         
-        console.log("Content-recording: Requesting getUserMedia for desktop with constraints:", constraints);
+        console.log("Content-recording: Requesting getUserMedia for desktop with constraints:", desktopConstraints);
         console.log("Content-recording: Stream ID type:", typeof streamId, "Value:", streamId);
         
         // Validate stream ID before using it
@@ -229,13 +235,34 @@ async function startDesktopRecordingWithStreamId(streamId, description) {
             throw new Error('Invalid stream ID provided: ' + streamId);
         }
         
-        recordingStream = await navigator.mediaDevices.getUserMedia(constraints);
+        recordingStream = await navigator.mediaDevices.getUserMedia(desktopConstraints);
         
         console.log("Content-recording: Got desktop recording stream:", recordingStream);
         
-        // Create MediaRecorder
+        // If microphone is enabled and we have permission, add microphone audio
+        if (includeMicrophone) {
+            try {
+                console.log("Content-recording: Adding microphone to desktop recording");
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // For desktop recording, we only have video from desktop and audio from microphone
+                // No need to mix since there's no desktop audio to mix with
+                const videoTracks = recordingStream.getVideoTracks();
+                const micAudioTracks = microphoneStream.getAudioTracks();
+                
+                recordingStream = new MediaStream([...videoTracks, ...micAudioTracks]);
+                
+                console.log("Content-recording: Successfully added microphone audio to desktop recording");
+            } catch (micError) {
+                console.warn("Content-recording: Failed to get microphone for desktop recording:", micError);
+                // Continue with video only
+            }
+        }
+        
+        // Create MediaRecorder with appropriate codec based on whether we have audio
+        const hasAudio = recordingStream.getAudioTracks().length > 0;
         mediaRecorder = new MediaRecorder(recordingStream, {
-            mimeType: 'video/webm;codecs=vp9'
+            mimeType: hasAudio ? 'video/webm;codecs=vp9,opus' : 'video/webm;codecs=vp9'
         });
         
         console.log("Content-recording: Created MediaRecorder for desktop recording");
