@@ -1,0 +1,159 @@
+/* VizualAI Glass Performance Optimizations */
+
+/* GPU Acceleration Hints */
+.liquid-glass-base,
+.glass-button-card,
+.glass-action-card,
+.glass-container {
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Optimize backdrop-filter performance */
+@supports (backdrop-filter: blur(1px)) {
+  .liquid-glass-base,
+  .glass-button-card,
+  .glass-action-card {
+    /* Use contain to limit repaints */
+    contain: layout style paint;
+  }
+}
+
+/* Reduced Quality Mode for Low-End Devices */
+@media (max-resolution: 1dppx) {
+  .liquid-glass-base,
+  .glass-button-card,
+  .glass-action-card {
+    backdrop-filter: blur(8px) saturate(120%);
+    -webkit-backdrop-filter: blur(8px) saturate(120%);
+  }
+}
+
+/* Battery Saver Mode */
+body.low-battery-mode .liquid-glass-base,
+body.low-battery-mode .glass-button-card,
+body.low-battery-mode .glass-action-card {
+  backdrop-filter: blur(6px) saturate(110%);
+  -webkit-backdrop-filter: blur(6px) saturate(110%);
+  transition: none;
+  animation: none;
+}
+
+body.low-battery-mode .glass-button-card:hover,
+body.low-battery-mode .glass-action-card:hover {
+  transform: none;
+  box-shadow: var(--glass-shadow);
+}
+
+/* Reduced Motion Mode */
+body.reduced-motion * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+body.reduced-motion .liquid-glass-popup {
+  animation: none;
+}
+
+/* High Performance Mode */
+@media (min-device-pixel-ratio: 2) and (min-width: 1920px) {
+  .liquid-glass-base,
+  .glass-button-card,
+  .glass-action-card {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+
+/* Fallback for No Backdrop Filter Support */
+@supports not (backdrop-filter: blur(1px)) {
+  .liquid-glass-base {
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.12),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  }
+
+  .glass-button-card,
+  .glass-action-card {
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 
+      0 4px 16px rgba(0, 0, 0, 0.1),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  }
+
+  .glass-button-card:hover,
+  .glass-action-card:hover {
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .glass-container {
+    background: rgba(255, 255, 255, 0.85);
+  }
+}
+
+/* Optimize Animations */
+@keyframes optimizedPulse {
+  0%, 100% { 
+    opacity: 1; 
+  }
+  50% { 
+    opacity: 0.7;
+  }
+}
+
+/* Use CSS containment for better performance */
+.glass-content {
+  contain: layout style;
+}
+
+.glass-action-card {
+  contain: layout style paint;
+}
+
+/* Optimize font rendering */
+body {
+  font-display: swap;
+  text-rendering: optimizeLegibility;
+}
+
+/* Reduce paint areas */
+.icon-glow {
+  will-change: opacity;
+  contain: paint;
+}
+
+/* Hardware accelerated transforms only */
+.glass-button-card:hover,
+.glass-action-card:hover,
+.glass-icon-btn:hover {
+  transform: translateY(-2px) translateZ(0);
+}
+
+/* Optimize countdown overlay */
+.glass-countdown-overlay {
+  will-change: opacity;
+}
+
+.countdown-number {
+  will-change: transform, opacity;
+}
+
+.countdown-ring {
+  will-change: transform, opacity;
+  contain: paint;
+}
+
+/* Memory optimization for noise texture */
+.liquid-glass-base::after {
+  will-change: auto; /* Don't keep in memory when not animating */
+}
+
+/* Reduce repaints on scroll */
+.liquid-glass-popup {
+  overflow: hidden;
+  contain: layout style paint;
+}

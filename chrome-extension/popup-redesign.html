@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="glass-components.css">
+    <link rel="stylesheet" href="popup-redesign.css">
+    <link rel="stylesheet" href="glass-performance.css">
+    <link rel="stylesheet" href="glass-accessibility.css">
+</head>
+<body>
+    <!-- Main Glass Container -->
+    <div class="liquid-glass-popup">
+        <!-- Header Section -->
+        <div class="glass-header">
+            <div class="vizual-logo-glass">
+                <svg xmlns="http://www.w3.org/2000/svg" width="120" height="32" viewBox="0 0 120 32">
+                    <defs>
+                        <linearGradient id="aiGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#22D3EE"/>
+                            <stop offset="100%" stop-color="#C084FC"/>
+                        </linearGradient>
+                    </defs>
+                    <text x="0" y="24" 
+                          font-family="system-ui, -apple-system, sans-serif" 
+                          font-weight="700" 
+                          font-size="24" 
+                          fill="#0F172A">Vizual</text>
+                    <text x="62" y="24" 
+                          font-family="system-ui, -apple-system, sans-serif" 
+                          font-weight="700" 
+                          font-size="24" 
+                          fill="url(#aiGradient)">AI</text>
+                </svg>
+            </div>
+            <div class="header-actions">
+                <button class="glass-icon-btn" id="home-btn" title="Home" aria-label="Go to home">
+                    <span class="icon">🏠</span>
+                </button>
+                <button class="glass-icon-btn" id="settings-btn" title="Settings" aria-label="Open settings">
+                    <span class="icon">⚙️</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="glass-connection-status" id="connection-status" role="status" aria-live="polite">
+            <div class="status-glass-badge" id="status-badge">
+                <span class="status-dot"></span>
+                <span id="connection-text">Checking connection...</span>
+            </div>
+        </div>
+
+        <!-- Recording Status -->
+        <div class="glass-recording-status" id="recording-status" role="status" aria-live="polite">
+            <div class="status-glass-badge recording">
+                <span class="recording-dot"></span>
+                <span>Recording</span>
+                <span class="timer" id="timer">00:00</span>
+            </div>
+        </div>
+
+        <!-- Main Action Cards -->
+        <div class="glass-content">
+            <!-- Screenshot Card -->
+            <div class="glass-action-card screenshot-card" id="screenshot-card" role="button" tabindex="0" aria-label="Capture screenshot of current tab">
+                <div class="card-icon">
+                    <span class="icon-large">📸</span>
+                    <div class="icon-glow"></div>
+                </div>
+                <div class="card-content">
+                    <h3 class="card-title">Capture Screenshot</h3>
+                    <p class="card-description">Take a snapshot of the current tab</p>
+                </div>
+                <div class="card-arrow">→</div>
+            </div>
+
+            <!-- Recording Cards Container -->
+            <div class="glass-recording-container">
+                <!-- Record Tab Card -->
+                <div class="glass-action-card recording-card" id="record-tab-card" role="button" tabindex="0" aria-label="Record current browser tab">
+                    <div class="card-icon">
+                        <span class="icon-large">📱</span>
+                        <div class="icon-glow"></div>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">Record Tab</h3>
+                        <p class="card-description">Capture this tab</p>
+                    </div>
+                </div>
+
+                <!-- Record Desktop Card -->
+                <div class="glass-action-card recording-card" id="record-desktop-card" role="button" tabindex="0" aria-label="Record entire desktop screen">
+                    <div class="card-icon">
+                        <span class="icon-large">🖥</span>
+                        <div class="icon-glow"></div>
+                    </div>
+                    <div class="card-content">
+                        <h3 class="card-title">Record Desktop</h3>
+                        <p class="card-description">Capture full screen</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Glass Controls -->
+        <div class="glass-bottom-controls">
+            <div class="left-controls">
+                <button class="glass-microphone-btn" id="microphone-button" title="Toggle microphone" aria-label="Toggle microphone on or off" aria-pressed="false">
+                    <span class="mic-icon">🎤</span>
+                </button>
+                <button class="glass-permission-btn" id="permission-button">
+                    <span class="permission-icon">🔴</span>
+                    <span id="permission-text">Grant permission</span>
+                </button>
+            </div>
+            <a href="#" class="glass-help-btn" id="help-button">
+                <span>Help</span>
+                <span class="help-icon">💬</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Countdown Overlay with Glass Effect -->
+    <div class="glass-countdown-overlay" id="countdown-overlay">
+        <div class="glass-countdown-content">
+            <h2 class="countdown-title">Preparing to record</h2>
+            <p class="countdown-subtitle" id="countdown-subtitle">
+                Your microphone is currently <span class="muted">muted</span>
+            </p>
+            <div class="countdown-number-container">
+                <div class="countdown-number" id="countdown-number">3</div>
+                <div class="countdown-ring"></div>
+            </div>
+            <p class="countdown-hint">Click anywhere to pause the countdown</p>
+        </div>
+    </div>
+
+    <script src="popup-redesign.js"></script>
+</body>
+</html>

@@ -22,8 +22,8 @@
       "service_worker": "background.js"
     },
     "action": {
-      "default_popup": "popup.html",
-      "default_title": "Browser Tools MCP - Screen Recording & Developer Tools"
+      "default_popup": "popup-redesign.html",
+      "default_title": "VizualAI Browser Tools - Screen Recording & Developer Tools"
     },
     "content_scripts": [
       {
