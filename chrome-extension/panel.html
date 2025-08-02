@@ -2,148 +2,330 @@
 <html>
 <head>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            padding: 16px;
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #282828;
-            color: #fff;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            line-height: 1.5;
         }
-        .endpoint-list {
-            margin: 16px 0;
+        /* Modern Card Layout */
+        .settings-section {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.2s ease;
         }
-        .endpoint-item {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 8px;
-            align-items: center;
+        
+        .settings-section:hover {
+            border-color: #dee2e6;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
-        .endpoint-form {
-            display: flex;
-            gap: 8px;
+        
+        .settings-section h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
             margin-bottom: 16px;
+            display: flex;
             align-items: center;
+            gap: 8px;
         }
+        
         button {
-            padding: 4px 8px;
+            padding: 8px 16px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: #fff;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
+        
+        button:hover {
+            background: #f8f9fa;
+            border-color: #adb5bd;
+        }
+        
+        button.primary {
+            background: #007bff;
+            color: #fff;
+            border-color: #007bff;
+        }
+        
+        button.primary:hover {
+            background: #0056b3;
+            border-color: #0056b3;
+        }
+        
         input {
-            padding: 4px;
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.2s ease;
         }
+        
+        input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .checkbox-group {
+            margin-bottom: 12px;
+        }
+        
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 400;
+            cursor: pointer;
+        }
+        
+        input[type="number"],
+        input[type="text"] {
+            width: 100%;
+            max-width: 300px;
+        }
+        
+        /* Status Indicators */
         .status-indicator {
             width: 8px;
             height: 8px;
             border-radius: 50%;
             display: inline-block;
         }
+        
         .status-connected {
-            background: #4caf50;
+            background: #28a745;
         }
+        
         .status-disconnected {
-            background: #f44336;
+            background: #dc3545;
         }
-        .form-group {
-            margin-bottom: 16px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 4px;
-        }
-        .checkbox-group {
-            margin-bottom: 8px;
-        }
-        .checkbox-group-2 {
-            margin-bottom: 6px;
-        }
-        input[type="number"],
-        input[type="text"] {
-            padding: 4px;
-            width: 200px;
-        }
-        .settings-section {
-            border: 1px solid #ccc;
-            padding: 16px;
-            margin-bottom: 16px;
-            border-radius: 4px;
-        }
+        /* Advanced Settings Collapsible */
         .settings-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             cursor: pointer;
             user-select: none;
+            padding: 4px 0;
         }
-        .settings-header h3 {
-            margin: 0;
-        }
+        
         .settings-content {
             display: none;
             margin-top: 16px;
         }
+        
         .settings-content.visible {
             display: block;
         }
+        
         .chevron {
             width: 20px;
             height: 20px;
             transition: transform 0.3s ease;
+            color: #6c757d;
         }
+        
         .chevron.open {
             transform: rotate(180deg);
         }
+        
+        /* Action Groups */
         .quick-actions {
             display: flex;
-            gap: 8px;
+            gap: 12px;
             margin-bottom: 16px;
+            flex-wrap: wrap;
         }
+        
         .action-button {
-            background-color: #4a4a4a;
+            background: #007bff;
             color: white;
             border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            padding: 10px 16px;
+            border-radius: 6px;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: all 0.2s ease;
+            font-weight: 500;
         }
+        
         .action-button:hover {
-            background-color: #5a5a5a;
+            background: #0056b3;
+            transform: translateY(-1px);
         }
+        
         .action-button.danger {
-            background-color: #f44336;
+            background: #dc3545;
         }
+        
         .action-button.danger:hover {
-            background-color: #d32f2f;
+            background: #c82333;
+        }
+        
+        .action-button.recording {
+            background: #dc3545;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        /* Recording Styles */
+        .recording-section {
+            border: 2px solid #dc3545;
+            background: #fff5f5;
+        }
+        
+        .recording-timer {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            color: #dc3545;
+            margin-left: 8px;
+            font-weight: 600;
+        }
+        
+        .description-input {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            margin-top: 8px;
+            background: #fff;
+            color: #333;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            resize: vertical;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            transition: all 0.2s ease;
+        }
+        
+        .description-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+        
+        .description-input::placeholder {
+            color: #6c757d;
+            font-size: 13px;
+        }
+        
+        .recording-status {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: #fff2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            color: #dc2626;
+        }
+        
+        .recording-dot {
+            width: 10px;
+            height: 10px;
+            background: #dc3545;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: recording-pulse 1s infinite;
+        }
+        
+        @keyframes recording-pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
         }
     </style>
 </head>
 <body>
-    <div class="settings-section">
-        <h3>Quick Actions</h3>
+    <div class="settings-section" id="recording-section">
+        <h3>📹 Screen Recording</h3>
+        <div id="recording-status" class="recording-status" style="display: none;">
+            <div class="recording-dot"></div>
+            <span>Recording in progress</span>
+            <span id="recording-timer" class="recording-timer">00:00</span>
+        </div>
+        <div id="recording-info" style="margin-bottom: 16px; font-size: 14px; color: #6c757d;">
+            <p style="margin: 4px 0;">• Records your screen/window with audio</p>
+            <p style="margin: 4px 0;">• You'll be prompted to select what to record</p>
+            <p style="margin: 4px 0;">• Saves as WebM video to ~/Downloads/mcp-recordings/</p>
+        </div>
+        <div class="form-group">
+            <label for="problem-description">Recording Description:</label>
+            <textarea id="problem-description" class="description-input" 
+                placeholder="Enter a description of what you're recording...
+
+Examples:
+• User checkout flow bug - payment fails
+• Performance issue when loading product list
+• UI glitch in mobile navigation menu
+• Demo of new feature implementation"></textarea>
+        </div>
         <div class="quick-actions">
-            <button id="capture-screenshot" class="action-button">
-                Capture Screenshot
-            </button>
-            <button id="wipe-logs" class="action-button danger">
-                Wipe All Logs
+            <button id="toggle-recording" class="action-button primary">
+                🎬 Start Recording
             </button>
         </div>
-        <div class="checkbox-group-2" style="margin-top: 10px; display: flex; align-items: center;">
+    </div>
+
+    <div class="settings-section">
+        <h3>⚡ Quick Actions</h3>
+        <div class="quick-actions">
+            <button id="capture-screenshot" class="action-button">
+                📸 Capture Screenshot
+            </button>
+            <button id="wipe-logs" class="action-button danger">
+                🗑️ Wipe All Logs
+            </button>
+        </div>
+        <div class="checkbox-group" style="margin-top: 16px;">
             <label>
                 <input type="checkbox" id="allow-auto-paste">
-                Allow Auto-paste to Cursor
+                <span>Allow Auto-paste to Cursor</span>
             </label>
         </div>
     </div>
 
     <div class="settings-section">
-        <h3>Screenshot Settings</h3>
+        <h3>📷 Screenshot Settings</h3>
         <div class="form-group">
-            <label for="screenshot-path">Provide a directory to save screenshots to (by default screenshots will be saved to your downloads folder if no path is provided)</label>
-            <input type="text" id="screenshot-path" placeholder="/path/to/screenshots">
+            <label for="screenshot-path">Custom Screenshot Directory</label>
+            <input type="text" id="screenshot-path" placeholder="/path/to/screenshots (optional - defaults to Downloads)">
         </div>
     </div>
 
     <div class="settings-section">
-        <h3>Server Connection Settings</h3>
+        <h3>🔗 Server Connection</h3>
         <div class="form-group">
             <label for="server-host">Server Host</label>
             <input type="text" id="server-host" placeholder="localhost or IP address">
@@ -154,21 +336,21 @@
         </div>
         <div class="quick-actions">
             <button id="discover-server" class="action-button">
-                Auto-Discover Server
+                🔍 Auto-Discover Server
             </button>
             <button id="test-connection" class="action-button">
-                Test Connection
+                🔌 Test Connection
             </button>
         </div>
-        <div id="connection-status" style="margin-top: 8px; display: none;">
+        <div id="connection-status" style="margin-top: 12px; display: none;">
             <span id="status-icon" class="status-indicator"></span>
-            <span id="status-text"></span>
+            <span id="status-text" style="margin-left: 8px;"></span>
         </div>
     </div>
 
     <div class="settings-section">
         <div class="settings-header" id="advanced-settings-header">
-            <h3>Advanced Settings</h3>
+            <h3>⚙️ Advanced Settings</h3>
             <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
@@ -198,14 +380,14 @@
             <div class="checkbox-group">
                 <label>
                     <input type="checkbox" id="show-request-headers">
-                    Include Request Headers
+                    <span>Include Request Headers</span>
                 </label>
             </div>
 
             <div class="checkbox-group">
                 <label>
                     <input type="checkbox" id="show-response-headers">
-                    Include Response Headers
+                    <span>Include Response Headers</span>
                 </label>
             </div>
         </div>

@@ -1,3 +1,24 @@
+// Handle extension icon click for recording
+chrome.action.onClicked.addListener((tab) => {
+  console.log("Extension icon clicked, toggling recording for tab:", tab.id);
+  
+  // Check if we have an active recording for this tab
+  if (global.activeRecordings && global.activeRecordings.has(tab.id)) {
+    // Stop recording
+    chrome.runtime.sendMessage({
+      type: "STOP_RECORDING",
+      tabId: tab.id
+    });
+  } else {
+    // Start recording
+    chrome.runtime.sendMessage({
+      type: "START_RECORDING", 
+      tabId: tab.id,
+      description: "Recording started via extension icon"
+    });
+  }
+});
+
 // Listen for messages from the devtools panel
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "GET_CURRENT_URL" && message.tabId) {
@@ -67,6 +88,219 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
     });
     return true; // Required to use sendResponse asynchronously
+  }
+  
+  // Handle messages from popup
+  if (sender.id === chrome.runtime.id && sender.origin === "chrome-extension://" + chrome.runtime.id) {
+    if (message.type === "CAPTURE_SCREENSHOT" && message.tabId) {
+      // Reuse the same screenshot logic
+      chrome.storage.local.get(["browserConnectorSettings"], (result) => {
+        const settings = result.browserConnectorSettings || {
+          serverHost: "localhost",
+          serverPort: 3025,
+        };
+
+        validateServerIdentity(settings.serverHost, settings.serverPort)
+          .then((isValid) => {
+            if (!isValid) {
+              sendResponse({
+                success: false,
+                error: "Not connected to server",
+              });
+              return;
+            }
+            captureAndSendScreenshot(message, settings, sendResponse);
+          })
+          .catch((error) => {
+            sendResponse({
+              success: false,
+              error: error.message,
+            });
+          });
+      });
+      return true;
+    }
+  }
+
+  // Handle screen recording start
+  if (message.type === "START_RECORDING" && message.tabId) {
+    console.log("Background: Starting screen recording for tab", message.tabId);
+    
+    chrome.storage.local.get(["browserConnectorSettings"], (result) => {
+      const settings = result.browserConnectorSettings || {
+        serverHost: "localhost",
+        serverPort: 3025
+      };
+      
+      // First validate server
+      validateServerIdentity(settings.serverHost, settings.serverPort)
+        .then(isValid => {
+          if (!isValid) {
+            sendResponse({
+              success: false,
+              error: "Not connected to a valid browser tools server"
+            });
+            return;
+          }
+          
+          // For Manifest V3, we need to get the current tab first
+          chrome.tabs.get(message.tabId, (tab) => {
+            if (chrome.runtime.lastError) {
+              console.error("Error getting tab:", chrome.runtime.lastError);
+              sendResponse({
+                success: false,
+                error: chrome.runtime.lastError.message
+              });
+              return;
+            }
+            
+            // Get tab capture stream
+            chrome.tabCapture.capture({
+              audio: true,
+              video: true,
+              videoConstraints: {
+                mandatory: {
+                  minWidth: 640,
+                  minHeight: 480,
+                  maxWidth: 1920,
+                  maxHeight: 1080,
+                  maxFrameRate: 30,
+                  chromeMediaSource: 'tab',
+                  chromeMediaSourceId: String(message.tabId)
+                }
+              }
+            }, (stream) => {
+              if (chrome.runtime.lastError) {
+                console.error("Error starting tab capture:", chrome.runtime.lastError);
+                // Try alternative approach for DevTools context
+                console.log("Attempting alternative capture method...");
+                
+                // Alternative: Try using getMediaStreamId approach
+                chrome.tabCapture.getMediaStreamId({
+                  targetTabId: message.tabId
+                }, (streamId) => {
+                  if (chrome.runtime.lastError) {
+                    console.error("Alternative method also failed:", chrome.runtime.lastError);
+                    sendResponse({
+                      success: false,
+                      error: "Tab capture requires user activation. Please try clicking the extension icon first, or use the browser action to start recording."
+                    });
+                    return;
+                  }
+                  
+                  // Store the streamId for later use
+                  sendResponse({
+                    success: true,
+                    streamId: streamId,
+                    message: "Stream ID obtained. Recording can be started from content script."
+                  });
+                });
+                return;
+              }
+            
+            // Store stream reference for later
+            if (!global.activeRecordings) {
+              global.activeRecordings = new Map();
+            }
+            
+            const recordingId = `recording_${message.tabId}_${Date.now()}`;
+            global.activeRecordings.set(message.tabId, {
+              stream: stream,
+              recordingId: recordingId,
+              description: message.description || ""
+            });
+            
+            // Notify server that recording started
+            fetch(`http://${settings.serverHost}:${settings.serverPort}/start-recording`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                tabId: message.tabId,
+                recordingId: recordingId,
+                description: message.description || "",
+                timestamp: Date.now()
+              })
+            })
+            .then(() => {
+              sendResponse({
+                success: true,
+                recordingId: recordingId
+              });
+            })
+            .catch(error => {
+              console.error("Error notifying server:", error);
+              // Still return success since recording started
+              sendResponse({
+                success: true,
+                recordingId: recordingId
+              });
+            });
+          });
+          });
+        })
+        .catch(error => {
+          sendResponse({
+            success: false,
+            error: "Failed to validate server: " + error.message
+          });
+        });
+    });
+    return true;
+  }
+
+  // Handle screen recording stop
+  if (message.type === "STOP_RECORDING" && message.tabId) {
+    console.log("Background: Stopping screen recording for tab", message.tabId);
+    
+    if (!global.activeRecordings || !global.activeRecordings.has(message.tabId)) {
+      sendResponse({
+        success: false,
+        error: "No active recording found for this tab"
+      });
+      return true;
+    }
+    
+    const recording = global.activeRecordings.get(message.tabId);
+    const { stream, recordingId, description } = recording;
+    
+    // Stop all tracks in the stream
+    stream.getTracks().forEach(track => track.stop());
+    
+    // Remove from active recordings
+    global.activeRecordings.delete(message.tabId);
+    
+    chrome.storage.local.get(["browserConnectorSettings"], (result) => {
+      const settings = result.browserConnectorSettings || {
+        serverHost: "localhost",
+        serverPort: 3025
+      };
+      
+      // Notify server that recording stopped
+      fetch(`http://${settings.serverHost}:${settings.serverPort}/stop-recording`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tabId: message.tabId,
+          recordingId: recordingId,
+          timestamp: Date.now()
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        sendResponse({
+          success: true,
+          path: data.path || "recording saved"
+        });
+      })
+      .catch(error => {
+        console.error("Error notifying server:", error);
+        sendResponse({
+          success: true, // Recording was stopped, even if server notification failed
+          path: "recording saved locally"
+        });
+      });
+    });
+    return true;
   }
 });
 

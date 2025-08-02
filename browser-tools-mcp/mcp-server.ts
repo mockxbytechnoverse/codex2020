@@ -298,6 +298,231 @@ server.tool(
   }
 );
 
+// Screen Recording Tools
+server.tool(
+  "startScreenRecording",
+  "Start recording the current browser tab (optionally pass description in request)",
+  async () => {
+    return await withServerConnection(async () => {
+      try {
+        // Generate a unique request ID for tracking
+        const requestId = `rec_${Date.now()}`;
+        
+        // For screen recording, we just track the session on the server
+        const response = await fetch(
+          `http://${discoveredHost}:${discoveredPort}/start-recording`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              description: "", // No args available in this format
+              requestId: requestId,
+              tabId: "screen-recording", // Special ID for screen recordings
+              recordingId: requestId
+            })
+          }
+        );
+
+        const result = await response.json();
+
+        if (response.ok) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Screen recording started successfully\nRecording ID: ${result.recordingId}`
+              }
+            ]
+          };
+        } else {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error starting recording: ${result.message || result.error}`
+              }
+            ]
+          };
+        }
+      } catch (error: any) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to start recording: ${errorMessage}`
+            }
+          ]
+        };
+      }
+    });
+  }
+);
+
+server.tool(
+  "stopScreenRecording",
+  "Stop the current screen recording",
+  async () => {
+    return await withServerConnection(async () => {
+      try {
+        const response = await fetch(
+          `http://${discoveredHost}:${discoveredPort}/stop-recording`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            }
+          }
+        );
+
+        const result = await response.json();
+
+        if (response.ok) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Screen recording stopped successfully\nSaved to: ${result.path}\nDuration: ${Math.round(result.metadata.duration / 1000)} seconds`
+              }
+            ]
+          };
+        } else {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error stopping recording: ${result.message || result.error}`
+              }
+            ]
+          };
+        }
+      } catch (error: any) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to stop recording: ${errorMessage}`
+            }
+          ]
+        };
+      }
+    });
+  }
+);
+
+server.tool(
+  "getRecordingStatus",
+  "Get the status of the current recording session",
+  async () => {
+    return await withServerConnection(async () => {
+      try {
+        // For now, we'll check if there are any active recordings
+        // In a full implementation, we'd track the current recording ID
+        const response = await fetch(
+          `http://${discoveredHost}:${discoveredPort}/recording-status/current`,
+          {
+            method: "GET"
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(result, null, 2)
+              }
+            ]
+          };
+        } else if (response.status === 404) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "No active recording session"
+              }
+            ]
+          };
+        } else {
+          const errorText = await response.text();
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error getting recording status: ${errorText}`
+              }
+            ]
+          };
+        }
+      } catch (error: any) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to get recording status: ${errorMessage}`
+            }
+          ]
+        };
+      }
+    });
+  }
+);
+
+// Recording Management Tools
+server.tool(
+  "listRecordings",
+  "List all available screen recordings",
+  async () => {
+    return await withServerConnection(async () => {
+      try {
+        const response = await fetch(
+          `http://${discoveredHost}:${discoveredPort}/recordings`,
+          {
+            method: "GET"
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(result, null, 2)
+              }
+            ]
+          };
+        } else {
+          const errorText = await response.text();
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error listing recordings: ${errorText}`
+              }
+            ]
+          };
+        }
+      } catch (error: any) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Failed to list recordings: ${errorMessage}`
+            }
+          ]
+        };
+      }
+    });
+  }
+);
+
 server.tool(
   "getSelectedElement",
   "Get the selected element from the browser",

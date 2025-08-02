@@ -979,3 +979,227 @@ wipeLogsButton.addEventListener("click", () => {
       }, 2000);
     });
 });
+
+// Screen Recording functionality
+let isRecording = false;
+let recordingStartTime = null;
+let recordingTimerInterval = null;
+let mediaRecorder = null;
+let recordingStream = null;
+let recordedChunks = [];
+
+// Get recording UI elements
+const toggleRecordingButton = document.getElementById("toggle-recording");
+const recordingStatusDiv = document.getElementById("recording-status");
+const recordingTimerSpan = document.getElementById("recording-timer");
+const problemDescriptionTextarea = document.getElementById("problem-description");
+const recordingSection = document.getElementById("recording-section");
+
+// Format time for display
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Update recording timer
+function updateRecordingTimer() {
+  if (recordingStartTime) {
+    const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+    recordingTimerSpan.textContent = formatTime(elapsed);
+  }
+}
+
+// Helper function to start screen recording
+async function startScreenRecording(description) {
+  try {
+    // Request screen capture
+    recordingStream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        width: { ideal: 1920, max: 1920 },
+        height: { ideal: 1080, max: 1080 },
+        frameRate: { ideal: 30, max: 30 }
+      },
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        sampleRate: 44100
+      }
+    });
+
+    // Create MediaRecorder
+    mediaRecorder = new MediaRecorder(recordingStream, {
+      mimeType: 'video/webm;codecs=vp9,opus'
+    });
+
+    recordedChunks = [];
+    
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        recordedChunks.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      await saveRecording(blob, description);
+    };
+
+    mediaRecorder.onerror = (event) => {
+      console.error('MediaRecorder error:', event);
+      stopScreenRecording();
+    };
+
+    // Handle stream ending (user stops sharing)
+    recordingStream.getVideoTracks()[0].onended = () => {
+      console.log('User stopped screen sharing');
+      if (isRecording) {
+        stopScreenRecording();
+      }
+    };
+
+    // Start recording
+    mediaRecorder.start(1000); // Collect data every second
+    
+    return true;
+  } catch (error) {
+    console.error('Error starting screen recording:', error);
+    return false;
+  }
+}
+
+// Helper function to stop screen recording
+function stopScreenRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+  }
+  
+  if (recordingStream) {
+    recordingStream.getTracks().forEach(track => track.stop());
+  }
+  
+  // Reset UI
+  isRecording = false;
+  recordingStartTime = null;
+  
+  // Update button
+  toggleRecordingButton.textContent = "Start Recording";
+  toggleRecordingButton.classList.remove("recording");
+  toggleRecordingButton.disabled = false;
+  
+  // Hide recording status
+  recordingStatusDiv.style.display = "none";
+  
+  // Remove recording class from section
+  recordingSection.classList.remove("recording-section");
+  
+  // Stop timer
+  if (recordingTimerInterval) {
+    clearInterval(recordingTimerInterval);
+    recordingTimerInterval = null;
+  }
+  recordingTimerSpan.textContent = "00:00";
+  
+  // Re-enable description textarea
+  problemDescriptionTextarea.disabled = false;
+  
+  // Show recording info again
+  const recordingInfo = document.getElementById("recording-info");
+  if (recordingInfo) {
+    recordingInfo.style.display = "block";
+  }
+}
+
+// Helper function to save recording
+async function saveRecording(blob, description) {
+  try {
+    // Convert blob to base64
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64data = reader.result;
+      
+      // Send to server
+      const response = await fetch(`http://${settings.serverHost}:${settings.serverPort}/recording-data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          data: base64data,
+          description: description,
+          duration: Date.now() - recordingStartTime,
+          timestamp: Date.now()
+        })
+      });
+      
+      if (response.ok) {
+        console.log('Recording saved successfully');
+        // Show success message
+        const originalText = toggleRecordingButton.textContent;
+        toggleRecordingButton.textContent = "Recording Saved!";
+        setTimeout(() => {
+          toggleRecordingButton.textContent = originalText;
+        }, 2000);
+      } else {
+        console.error('Failed to save recording');
+        alert('Failed to save recording to server');
+      }
+    };
+    
+    reader.readAsDataURL(blob);
+  } catch (error) {
+    console.error('Error saving recording:', error);
+    alert('Error saving recording: ' + error.message);
+  }
+}
+
+// Toggle recording
+toggleRecordingButton.addEventListener("click", async () => {
+  if (!isRecording) {
+    // Start recording
+    const description = problemDescriptionTextarea.value.trim();
+    
+    // Try screen recording directly
+    const success = await startScreenRecording(description);
+    
+    if (success) {
+      // Update UI to recording state
+      isRecording = true;
+      recordingStartTime = Date.now();
+      
+      // Update button appearance
+      toggleRecordingButton.textContent = "Stop Recording";
+      toggleRecordingButton.classList.add("recording");
+      
+      // Show recording status
+      recordingStatusDiv.style.display = "flex";
+      
+      // Hide recording info
+      const recordingInfo = document.getElementById("recording-info");
+      if (recordingInfo) {
+        recordingInfo.style.display = "none";
+      }
+      
+      // Add recording class to section
+      recordingSection.classList.add("recording-section");
+      
+      // Start timer
+      recordingTimerInterval = setInterval(updateRecordingTimer, 1000);
+      updateRecordingTimer(); // Initial update
+      
+      // Disable description textarea during recording
+      problemDescriptionTextarea.disabled = true;
+      
+      console.log("Screen recording started successfully");
+    } else {
+      alert("Failed to start screen recording. Please make sure to select a screen or window to record when prompted.");
+    }
+  } else {
+    // Stop recording
+    toggleRecordingButton.textContent = "Stopping...";
+    toggleRecordingButton.disabled = true;
+    
+    // Stop the screen recording
+    stopScreenRecording();
+  }
+});

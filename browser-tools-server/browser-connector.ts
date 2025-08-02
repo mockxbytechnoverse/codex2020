@@ -139,6 +139,13 @@ function getDefaultDownloadsFolder(): string {
   return downloadsPath;
 }
 
+// Function to get default recordings folder
+function getDefaultRecordingsFolder(): string {
+  const homeDir = os.homedir();
+  const recordingsPath = path.join(homeDir, "Downloads", "mcp-recordings");
+  return recordingsPath;
+}
+
 // We store logs in memory
 const consoleLogs: any[] = [];
 const consoleErrors: any[] = [];
@@ -168,6 +175,38 @@ let currentSettings = {
 
 // Add new storage for selected element
 let selectedElement: any = null;
+
+// Add storage for active recordings
+interface RecordingSession {
+  recordingId: string;
+  tabId: number | string;
+  description: string;
+  startTime: number;
+  status: 'recording' | 'stopped';
+  chunks: Buffer[];
+  // Context captured during recording - store initial counts
+  consoleLogsStartIndex?: number;
+  networkRequestsStartIndex?: number;
+  consoleErrorsStartIndex?: number;
+  networkErrorsStartIndex?: number;
+}
+
+const activeRecordings = new Map<string, RecordingSession>();
+
+// Recording analysis queue
+interface AnalysisRequest {
+  id: string;
+  recordingPath: string;
+  description: string;
+  metadata: any;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  result?: any;
+  error?: string;
+  createdAt: number;
+  completedAt?: number;
+}
+
+const analysisQueue = new Map<string, AnalysisRequest>();
 
 // Add new state for tracking screenshot requests
 interface ScreenshotCallback {
@@ -540,6 +579,351 @@ app.post("/wipelogs", (req, res) => {
   res.json({ status: "ok", message: "All logs cleared successfully" });
 });
 
+// Add recording endpoints
+app.post("/start-recording", (req, res) => {
+  const { tabId, recordingId, description } = req.body;
+  
+  console.log(`Starting recording session: ${recordingId} for tab ${tabId}`);
+  
+  // Capture current state of logs at recording start
+  const currentConsoleLogs = [...consoleLogs];
+  const currentConsoleErrors = [...consoleErrors];
+  const currentNetworkLogs = [...networkSuccess];
+  const currentNetworkErrors = [...networkErrors];
+  
+  // Create new recording session
+  const session: RecordingSession = {
+    recordingId,
+    tabId,
+    description,
+    startTime: Date.now(),
+    status: 'recording',
+    chunks: [],
+    // Store initial log counts to capture only new logs during recording
+    consoleLogsStartIndex: currentConsoleLogs.length,
+    consoleErrorsStartIndex: currentConsoleErrors.length,
+    networkRequestsStartIndex: currentNetworkLogs.length,
+    networkErrorsStartIndex: currentNetworkErrors.length
+  };
+  
+  activeRecordings.set(recordingId, session);
+  
+  res.json({
+    status: "ok",
+    recordingId,
+    message: "Recording session started"
+  });
+});
+
+app.post("/stop-recording", async (req, res) => {
+  const { recordingId } = req.body;
+  
+  console.log(`Stopping recording session: ${recordingId}`);
+  
+  const session = activeRecordings.get(recordingId);
+  if (!session) {
+    res.status(404).json({
+      status: "error",
+      message: "Recording session not found"
+    });
+    return;
+  }
+  
+  // Update session status
+  session.status = 'stopped';
+  
+  // Capture logs that occurred during recording
+  const recordingLogs = {
+    consoleLogs: consoleLogs.slice(session.consoleLogsStartIndex || 0),
+    consoleErrors: consoleErrors.slice(session.consoleErrorsStartIndex || 0),
+    networkRequests: networkSuccess.slice(session.networkRequestsStartIndex || 0),
+    networkErrors: networkErrors.slice(session.networkErrorsStartIndex || 0)
+  };
+  
+  // Generate filename
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const filename = `recording-${timestamp}.webm`;
+  const recordingsPath = getDefaultRecordingsFolder();
+  const fullPath = path.join(recordingsPath, filename);
+  
+  // Create directory if it doesn't exist
+  try {
+    fs.mkdirSync(recordingsPath, { recursive: true });
+  } catch (err) {
+    console.error("Error creating recordings directory:", err);
+  }
+  
+  // For now, just create a placeholder since we're not actually saving video data yet
+  // In the full implementation, we would save the actual video chunks here
+  const metadata = {
+    recordingId: session.recordingId,
+    tabId: session.tabId,
+    description: session.description,
+    startTime: session.startTime,
+    endTime: Date.now(),
+    duration: Date.now() - session.startTime,
+    filename: filename,
+    context: {
+      consoleLogs: recordingLogs.consoleLogs.length,
+      consoleErrors: recordingLogs.consoleErrors.length,
+      networkRequests: recordingLogs.networkRequests.length,
+      networkErrors: recordingLogs.networkErrors.length,
+      logs: recordingLogs // Store the actual logs in metadata
+    }
+  };
+  
+  // Save metadata
+  const metadataPath = fullPath.replace('.webm', '.json');
+  fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+  
+  // Remove from active recordings
+  activeRecordings.delete(recordingId);
+  
+  res.json({
+    status: "ok",
+    path: fullPath,
+    metadata: metadata
+  });
+});
+
+// Add endpoint to get recording status
+app.get("/recording-status/:recordingId", (req, res) => {
+  const { recordingId } = req.params;
+  const session = activeRecordings.get(recordingId);
+  
+  if (!session) {
+    res.status(404).json({
+      status: "error",
+      message: "Recording session not found"
+    });
+    return;
+  }
+  
+  res.json({
+    status: "ok",
+    recording: {
+      recordingId: session.recordingId,
+      tabId: session.tabId,
+      status: session.status,
+      duration: Date.now() - session.startTime,
+      description: session.description
+    }
+  });
+});
+
+// Add endpoint to receive recording data
+app.post("/recording-data", async (req, res) => {
+  const { data, description, duration, timestamp } = req.body;
+  
+  console.log(`Received recording data: duration=${duration}ms, hasData=${!!data}`);
+  
+  try {
+    // Generate filename
+    const recordingTimestamp = new Date(timestamp).toISOString().replace(/[:.]/g, "-");
+    const filename = `recording-${recordingTimestamp}.webm`;
+    const recordingsPath = getDefaultRecordingsFolder();
+    const fullPath = path.join(recordingsPath, filename);
+    
+    // Create directory if it doesn't exist
+    fs.mkdirSync(recordingsPath, { recursive: true });
+    
+    // Remove data URI prefix and save the file
+    const base64Data = data.replace(/^data:video\/webm;base64,/, "");
+    fs.writeFileSync(fullPath, base64Data, "base64");
+    
+    // Save metadata
+    const metadata = {
+      filename: filename,
+      description: description || "",
+      duration: duration,
+      timestamp: timestamp,
+      size: fs.statSync(fullPath).size
+    };
+    
+    const metadataPath = fullPath.replace('.webm', '.json');
+    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+    
+    console.log(`Recording saved: ${fullPath}`);
+    
+    res.json({
+      status: "ok",
+      path: fullPath,
+      filename: filename,
+      metadata: metadata
+    });
+  } catch (error) {
+    console.error("Error saving recording:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to save recording: " + (error instanceof Error ? error.message : String(error))
+    });
+  }
+});
+
+// Add recording analysis endpoint
+app.post("/analyze-recording", async (req, res) => {
+  const { recordingPath, description, immediate = false } = req.body;
+  
+  console.log(`Received recording analysis request: ${recordingPath}`);
+  
+  try {
+    // Read the metadata file
+    const metadataPath = recordingPath.replace('.webm', '.json');
+    if (!fs.existsSync(metadataPath)) {
+      res.status(404).json({
+        status: "error",
+        message: "Recording metadata not found"
+      });
+      return;
+    }
+    
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+    
+    // Create analysis request
+    const analysisId = `analysis_${Date.now()}`;
+    const analysisRequest: AnalysisRequest = {
+      id: analysisId,
+      recordingPath: recordingPath,
+      description: description || metadata.description,
+      metadata: metadata,
+      status: 'pending',
+      createdAt: Date.now()
+    };
+    
+    analysisQueue.set(analysisId, analysisRequest);
+    
+    // If immediate processing requested, process now
+    if (immediate) {
+      // In a real implementation, this would trigger the agent
+      analysisRequest.status = 'processing';
+      
+      // Simulate analysis (replace with actual agent call)
+      setTimeout(() => {
+        analysisRequest.status = 'completed';
+        analysisRequest.completedAt = Date.now();
+        analysisRequest.result = {
+          summary: `Analysis of recording: ${metadata.description}`,
+          duration: metadata.duration,
+          issues: [],
+          recommendations: [
+            "Recording captured successfully",
+            `${metadata.context.consoleLogs} console logs found during recording`,
+            `${metadata.context.networkRequests} network requests made`
+          ]
+        };
+      }, 2000);
+    }
+    
+    res.json({
+      status: "ok",
+      analysisId: analysisId,
+      message: immediate ? "Analysis started" : "Analysis queued"
+    });
+  } catch (error) {
+    console.error("Error creating analysis request:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to create analysis request"
+    });
+  }
+});
+
+// Get analysis status
+app.get("/analysis-status/:analysisId", (req, res) => {
+  const { analysisId } = req.params;
+  const analysis = analysisQueue.get(analysisId);
+  
+  if (!analysis) {
+    res.status(404).json({
+      status: "error",
+      message: "Analysis request not found"
+    });
+    return;
+  }
+  
+  res.json({
+    status: "ok",
+    analysis: analysis
+  });
+});
+
+// List all recordings
+app.get("/recordings", (req, res) => {
+  try {
+    const recordingsPath = getDefaultRecordingsFolder();
+    
+    if (!fs.existsSync(recordingsPath)) {
+      res.json({
+        status: "ok",
+        recordings: []
+      });
+      return;
+    }
+    
+    const files = fs.readdirSync(recordingsPath);
+    const recordings = files
+      .filter(file => file.endsWith('.json'))
+      .map(file => {
+        const metadataPath = path.join(recordingsPath, file);
+        const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+        const videoPath = metadataPath.replace('.json', '.webm');
+        const videoExists = fs.existsSync(videoPath);
+        
+        return {
+          ...metadata,
+          metadataPath: metadataPath,
+          videoPath: videoExists ? videoPath : null,
+          videoSize: videoExists ? fs.statSync(videoPath).size : 0
+        };
+      })
+      .sort((a, b) => b.timestamp - a.timestamp); // Most recent first
+    
+    res.json({
+      status: "ok",
+      recordings: recordings,
+      count: recordings.length
+    });
+  } catch (error) {
+    console.error("Error listing recordings:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to list recordings"
+    });
+  }
+});
+
+// Delete recording
+app.delete("/recording/:filename", (req, res) => {
+  const { filename } = req.params;
+  
+  try {
+    const recordingsPath = getDefaultRecordingsFolder();
+    const videoPath = path.join(recordingsPath, filename);
+    const metadataPath = videoPath.replace('.webm', '.json');
+    
+    // Delete video file if exists
+    if (fs.existsSync(videoPath)) {
+      fs.unlinkSync(videoPath);
+    }
+    
+    // Delete metadata file if exists
+    if (fs.existsSync(metadataPath)) {
+      fs.unlinkSync(metadataPath);
+    }
+    
+    res.json({
+      status: "ok",
+      message: "Recording deleted successfully"
+    });
+  } catch (error) {
+    console.error("Error deleting recording:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to delete recording"
+    });
+  }
+});
+
 // Add endpoint for the extension to report the current URL
 app.post("/current-url", (req, res) => {
   console.log(
@@ -741,7 +1125,25 @@ export class BrowserConnector {
               );
               screenshotCallbacks.clear(); // Clear all callbacks
             }
-          } else {
+          }
+          // Handle recording-related messages
+          else if (data.type === "recording-started") {
+            console.log("Extension confirmed recording started:", data.recordingId);
+          }
+          else if (data.type === "recording-stopped") {
+            console.log("Extension confirmed recording stopped");
+          }
+          else if (data.type === "recording-data") {
+            console.log("Received recording data chunk");
+            const { recordingId, chunk } = data;
+            const session = activeRecordings.get(recordingId);
+            if (session) {
+              // In a real implementation, we would handle the video chunks here
+              // For now, just log that we received data
+              console.log(`Added chunk to recording ${recordingId}`);
+            }
+          }
+          else {
             console.log("Unhandled message type:", data.type);
           }
         } catch (error) {

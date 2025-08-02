@@ -70,6 +70,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
   }
 
+  // Handle recording status updates
+  if (message.type === "RECORDING_STATUS") {
+    console.log("DevTools received recording status:", message.status);
+    // Forward to WebSocket if connected
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: "recording-status",
+        status: message.status,
+        recordingId: message.recordingId,
+        tabId: currentTabId
+      }));
+    }
+  }
+
   // Handle auto-discovery requests after page refreshes
   if (message.type === "INITIATE_AUTO_DISCOVERY") {
     console.log(
@@ -1094,6 +1108,39 @@ async function setupWebSocket() {
           };
 
           requestCurrentUrl();
+        } else if (message.type === "start-recording-request") {
+          console.log("Chrome Extension: Received request to start recording");
+          // Forward to background script
+          chrome.runtime.sendMessage({
+            type: "START_RECORDING",
+            tabId: chrome.devtools.inspectedWindow.tabId,
+            description: message.description || ""
+          }, (response) => {
+            // Send response back via WebSocket
+            ws.send(JSON.stringify({
+              type: "recording-started",
+              success: response?.success || false,
+              recordingId: response?.recordingId,
+              error: response?.error,
+              requestId: message.requestId
+            }));
+          });
+        } else if (message.type === "stop-recording-request") {
+          console.log("Chrome Extension: Received request to stop recording");
+          // Forward to background script
+          chrome.runtime.sendMessage({
+            type: "STOP_RECORDING",
+            tabId: chrome.devtools.inspectedWindow.tabId
+          }, (response) => {
+            // Send response back via WebSocket
+            ws.send(JSON.stringify({
+              type: "recording-stopped",
+              success: response?.success || false,
+              path: response?.path,
+              error: response?.error,
+              requestId: message.requestId
+            }));
+          });
         }
       } catch (error) {
         console.error(
