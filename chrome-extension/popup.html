@@ -27,7 +27,18 @@
             padding: 16px 24px 12px 24px;
             display: flex;
             align-items: center;
-            justify-content: flex-end;
+            justify-content: space-between;
+        }
+        
+        .header-logo {
+            height: 24px;
+            width: 200px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .header-logo svg {
+            display: block;
         }
         
         .header-actions {
@@ -378,6 +389,31 @@
 </head>
 <body>
     <div class="header">
+        <div class="header-logo">
+            <svg xmlns="http://www.w3.org/2000/svg" width="300" height="72" viewBox="0 0 400 50">
+                <defs>
+                    <linearGradient id="logoAiGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#22D3EE"/>
+                        <stop offset="100%" stop-color="#C084FC"/>
+                    </linearGradient>
+                </defs>
+                
+                <!-- Simplified logo optimized for popup -->
+                <text x="0" y="32" 
+                      font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif" 
+                      font-weight="700" 
+                      font-size="40" 
+                      fill="#0F172A" 
+                      letter-spacing="-0.5px">Vizual</text>
+                      
+                <text x="105" y="32" 
+                      font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif" 
+                      font-weight="700" 
+                      font-size="40" 
+                      fill="url(#logoAiGrad)" 
+                      letter-spacing="-1px">AI</text>
+            </svg>
+        </div>
         <div class="header-actions">
             <button class="icon-btn" id="home-btn">🏠</button>
             <button class="icon-btn" id="settings-btn">⚙️</button>
@@ -401,7 +437,7 @@
         <!-- Capture Screenshot -->
         <div class="pill-button capture-screenshot" id="screenshot-card">
             <div class="icon">📸</div>
-            <div class="text">Capture Screenshoot</div>
+            <div class="text">Capture Screenshot</div>
         </div>
         
         <!-- Recording Row -->

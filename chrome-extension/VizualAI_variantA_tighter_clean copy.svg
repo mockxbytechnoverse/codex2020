@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 27.6.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 800 200" style="enable-background:new 0 0 800 200;" xml:space="preserve">
+<style type="text/css">
+	.st0{opacity:0.8;filter:url(#bigBlur);}
+	.st1{enable-background:new    ;}
+	.st2{font-family:'Arial-BoldMT';}
+	.st3{font-size:189.6392px;}
+	.st4{letter-spacing:-5;}
+	.st5{letter-spacing:-1;}
+	.st6{letter-spacing:-3;}
+	.st7{fill:#0F172A;}
+	.st8{filter:url(#aiGlow);}
+</style>
+<filter  height="200%" id="bigBlur" width="200%" x="-50%" y="-50%">
+	<feGaussianBlur  in="SourceGraphic" result="blur" stdDeviation="14"></feGaussianBlur>
+	<feComposite  in="blur" in2="SourceGraphic" operator="out" result="shadow"></feComposite>
+</filter>
+<filter  height="220%" id="aiGlow" width="220%" x="-60%" y="-60%">
+	<feGaussianBlur  in="SourceGraphic" result="blur" stdDeviation="6"></feGaussianBlur>
+	<feMerge>
+		<feMergeNode  in="blur"></feMergeNode>
+		<feMergeNode  in="SourceGraphic"></feMergeNode>
+	</feMerge>
+</filter>
+<g transform="translate(5,5)" class="st0">
+	<text transform="matrix(1 0 0 1 59.7798 163.2863)" class="st1"><tspan x="0" y="0" class="st2 st3 st4">V</tspan><tspan x="121.2" y="0" class="st2 st3 st5">izual</tspan></text>
+	<text transform="matrix(1 0 0 1 552.8408 163.2863)" class="st2 st3 st6">AI</text>
+</g>
+<text transform="matrix(1 0 0 1 59.0903 158.8049)" class="st2 st3 st5">Vizual</text>
+<text transform="matrix(1 0 0 1 55.2974 158.8049)" class="st7 st2 st3 st5">Vizual</text>
+<g class="st8">
+	<text transform="matrix(1 0 0 1 548.3584 158.8049)" class="st2 st3 st6">AI</text>
+</g>
+</svg>

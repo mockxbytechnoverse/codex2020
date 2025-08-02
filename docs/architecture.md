@@ -4,18 +4,22 @@ The system consists of three main components:
 
 ## 1. Chrome Extension (chrome-extension/)
 
-- Captures browser data: console logs, network requests, DOM elements
-- Takes screenshots using Chrome's tabs.captureVisibleTab API
-- Communicates via WebSocket with the Node server
-- Stores user settings like screenshot paths and token limits
+- **Data Capture**: Console logs, network requests, DOM elements
+- **Screenshot Capture**: Using Chrome's tabs.captureVisibleTab API
+- **Screen Recording**: Tab and desktop recording with audio support
+- **Interactive Features**: Popup interface with microphone controls
+- **Laser Pointer**: Drawing and annotation system during recordings
+- **Communication**: WebSocket connection with Node server
+- **Storage**: User settings, recording states, and permission management
 
 ## 2. Node.js Server (browser-tools-server/)
 
-- Acts as middleware between Chrome extension and MCP server
-- Handles screenshot storage to local filesystem
-- Manages WebSocket connections for real-time communication
-- Runs Lighthouse audits using Puppeteer for performance/SEO/accessibility
-- Sanitizes logs by removing sensitive headers and cookies
+- **Middleware**: Bridge between Chrome extension and MCP server
+- **File Storage**: Screenshots and screen recordings to local filesystem
+- **WebSocket Management**: Real-time communication channels
+- **Lighthouse Integration**: Performance, SEO, and accessibility audits via Puppeteer
+- **Data Sanitization**: Removes sensitive headers and cookies from logs
+- **Recording Processing**: Handles video file storage with metadata
 
 ## 3. MCP Server (browser-tools-mcp/)
 
@@ -24,15 +28,63 @@ The system consists of three main components:
 - Auto-discovers the Node server on various ports
 - Exposes browser functionality as AI-callable tools
 
-## How Screenshot Capture Works
+## How Screen Recording Works
 
 ### 1. Permission Model
 
-The Chrome extension requests permissions in manifest.json:
+The Chrome extension requests comprehensive permissions in manifest.json:
 
 - `activeTab` - access to current tab
 - `tabs` - ability to query and interact with tabs
-- `tabCapture` - capture tab content
+- `tabCapture` - capture tab content with audio/video
+- `desktopCapture` - capture desktop/window content
+- `storage` - persist user settings and recording states
+- `scripting` - inject recording controls and laser pointer
+
+### 2. Recording Types
+
+#### Tab Recording
+
+1. **Audio**: Mixes tab audio with microphone using Web Audio API
+2. **Video**: Captures browser tab content at up to 1920x1080, 30fps
+3. **Format**: WebM with VP9 video codec and Opus audio codec
+
+#### Desktop Recording
+
+1. **Audio**: Microphone only (Chrome security limitation)
+2. **Video**: Captures entire screen or selected window
+3. **Format**: WebM with VP9 video codec and Opus audio codec
+
+### 3. Interactive Features
+
+#### Popup Interface
+
+- **Microphone Management**: Permission requests and toggle controls
+- **Recording Controls**: Start tab/desktop recording with visual feedback
+- **State Persistence**: Settings saved across browser sessions
+
+#### Recording Bar (During Recording)
+
+- **Laser Pointer**: Toggle drawing/annotation mode
+- **Pause/Resume**: Control recording state
+- **Mute Toggle**: Real-time microphone control
+- **Stop**: End recording and save to server
+
+#### Laser Pointer System
+
+- **Visual Cursor**: Red glowing dot follows mouse
+- **Drawing**: Click and drag to create temporary red lines
+- **Auto-Cleanup**: Lines fade after 3 seconds
+- **SVG-Based**: Scalable vector graphics for smooth rendering
+
+## How Screenshot Capture Works
+
+### 1. Permission Model (Screenshots)
+
+Basic permissions for screenshot functionality:
+
+- `activeTab` - access to current tab
+- `tabs` - ability to query and interact with tabs
 
 ### 2. Capture Flow
 

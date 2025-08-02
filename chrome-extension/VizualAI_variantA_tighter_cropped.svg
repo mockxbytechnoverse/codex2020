@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="405" height="118" viewBox="-19.515625 98.578125 404.892578 117.406250">
+  <defs>
+    <!-- Gradient for AI -->
+    <linearGradient id="aiGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="#C084FC"/>
+    </linearGradient>
+    <!-- Echo gradient for Vizual -->
+    <linearGradient id="echoGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6EE7B7" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#A78BFA" stop-opacity="0.3"/>
+    </linearGradient>
+    <!-- Shadow gradient -->
+    <linearGradient id="shadowGrad" x1="0%" y1="0%" x2="1" y2="1">
+      <stop offset="0%" stop-color="#A78BFA" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#22D3EE" stop-opacity="0.6"/>
+    </linearGradient>
+    <!-- Heavy blur for colored shadow -->
+    <filter id="bigBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="blur"/>
+      <feComposite in="blur" in2="SourceGraphic" operator="out" result="shadow"/>
+    </filter>
+    <!-- Glow for AI -->
+    <filter id="aiGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .word { font-family: 'Poppins', system-ui,-apple-system,BlinkMacSystemFont,sans-serif; font-weight:700; font-size:100px; letter-spacing: -1px; }
+      .ai { font-family: 'Poppins', system-ui,-apple-system,BlinkMacSystemFont,sans-serif; font-weight:700; font-size:100px; letter-spacing: -2px; }
+    </style>
+  </defs>
+
+  <!-- Background colored shadow as large blurred "VizualAI" -->
+  <g filter="url(#bigBlur)" opacity="0.8" transform="translate(5,5)">
+    <text x="0" y="120" class="word" fill="url(#shadowGrad)">Vizual</text>
+    <text x="260" y="120" class="ai" fill="url(#shadowGrad)">AI</text>
+  </g>
+
+  <!-- Echo behind Vizual -->
+  <text x="2" y="120" class="word" fill="url(#echoGrad)">Vizual</text>
+  <!-- Main Vizual -->
+  <text x="0" y="120" class="word" fill="#0F172A">Vizual</text>
+
+  <!-- AI with gradient and glow -->
+  <g filter="url(#aiGlow)">
+    <text x="260" y="120" class="ai" fill="url(#aiGrad)">AI</text>
+  </g>
+</svg>

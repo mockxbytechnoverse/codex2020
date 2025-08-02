@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="800"
+   height="200"
+   viewBox="0 0 800 200"
+   version="1.1"
+   id="svg12"
+   sodipodi:docname="VizualAI_variantA_tighter_clean.svg"
+   inkscape:version="1.4.2 (ebf0e940, 2025-05-08)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview12"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="1.2347386"
+     inkscape:cx="322.74039"
+     inkscape:cy="46.163619"
+     inkscape:window-width="1512"
+     inkscape:window-height="945"
+     inkscape:window-x="0"
+     inkscape:window-y="37"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg12" />
+  <defs
+     id="defs8">
+    <!-- Gradient for AI -->
+    <linearGradient
+       id="aiGrad"
+       x1="200.7567"
+       y1="61.527728"
+       x2="295.34144"
+       y2="61.527728"
+       gradientTransform="matrix(1.3009373,0,0,0.76867655,-4.8593283,93.137126)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         stop-color="#22D3EE"
+         id="stop1" />
+      <stop
+         offset="100%"
+         stop-color="#C084FC"
+         id="stop2" />
+    </linearGradient>
+    <!-- Echo gradient for Vizual -->
+    <linearGradient
+       id="echoGrad"
+       x1="0%"
+       y1="0%"
+       x2="100%"
+       y2="0%">
+      <stop
+         offset="0%"
+         stop-color="#6EE7B7"
+         stop-opacity="0.3"
+         id="stop3" />
+      <stop
+         offset="100%"
+         stop-color="#A78BFA"
+         stop-opacity="0.3"
+         id="stop4" />
+    </linearGradient>
+    <!-- Shadow gradient -->
+    <linearGradient
+       id="shadowGrad"
+       x1="0%"
+       y1="0%"
+       x2="1"
+       y2="1">
+      <stop
+         offset="0%"
+         stop-color="#A78BFA"
+         stop-opacity="0.6"
+         id="stop5" />
+      <stop
+         offset="1"
+         stop-color="#22D3EE"
+         stop-opacity="0.6"
+         id="stop6" />
+    </linearGradient>
+    <!-- Heavy blur for colored shadow -->
+    <filter
+       id="bigBlur"
+       x="-0.077696485"
+       y="-0.43360302"
+       width="1.155393"
+       height="1.867206">
+      <feGaussianBlur
+         in="SourceGraphic"
+         stdDeviation="14"
+         result="blur"
+         id="feGaussianBlur6" />
+      <feComposite
+         in="blur"
+         in2="SourceGraphic"
+         operator="out"
+         result="shadow"
+         id="feComposite6" />
+    </filter>
+    <!-- Glow for AI -->
+    <filter
+       id="aiGlow"
+       x="-0.11702671"
+       y="-0.19806044"
+       width="1.2340534"
+       height="1.3961209">
+      <feGaussianBlur
+         in="SourceGraphic"
+         stdDeviation="6"
+         result="blur"
+         id="feGaussianBlur7" />
+      <feMerge
+         id="feMerge8">
+        <feMergeNode
+           in="blur"
+           id="feMergeNode7" />
+        <feMergeNode
+           in="SourceGraphic"
+           id="feMergeNode8" />
+      </feMerge>
+    </filter>
+    <style
+       id="style8">
+      .word { font-family: 'Poppins', system-ui,-apple-system,BlinkMacSystemFont,sans-serif; font-weight:700; font-size:100px; letter-spacing: -1px; }
+      .ai { font-family: 'Poppins', system-ui,-apple-system,BlinkMacSystemFont,sans-serif; font-weight:700; font-size:100px; letter-spacing: -2px; }
+    </style>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#shadowGrad"
+       id="linearGradient12"
+       x1="200.7567"
+       y1="61.527728"
+       x2="295.34144"
+       y2="156.11248"
+       gradientTransform="matrix(1.3009373,0,0,0.76867655,49.403173,0.80988805)"
+       gradientUnits="userSpaceOnUse" />
+  </defs>
+  <!-- Background colored shadow as large blurred "VizualAI" -->
+  <g
+     filter="url(#bigBlur)"
+     opacity="0.8"
+     transform="translate(5,5)"
+     id="g9">
+    <text
+       x="0"
+       y="120"
+       class="word"
+       fill="url(#shadowGrad)"
+       id="text8">Vizual</text>
+    <text
+       x="309.40317"
+       y="120.80988"
+       class="ai"
+       fill="url(#shadowGrad)"
+       id="text9"
+       style="fill:url(#linearGradient12)">AI</text>
+  </g>
+  <!-- Echo behind Vizual -->
+  <text
+     x="2"
+     y="120"
+     class="word"
+     fill="url(#echoGrad)"
+     id="text10">Vizual</text>
+  <!-- Main Vizual -->
+  <text
+     x="0"
+     y="120"
+     class="word"
+     fill="#0F172A"
+     id="text11">Vizual</text>
+  <!-- AI with gradient and glow -->
+  <g
+     filter="url(#aiGlow)"
+     id="g12"
+     transform="translate(55.619775,-92.327238)">
+    <text
+       x="255.14067"
+       y="213.13713"
+       class="ai"
+       fill="url(#aiGrad)"
+       id="text12"
+       style="fill:url(#aiGrad)">AI</text>
+  </g>
+</svg>
