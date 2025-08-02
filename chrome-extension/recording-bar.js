@@ -18,6 +18,13 @@ class RecordingBar {
                     <div class="codex-recording-timer" id="codex-recording-timer">1</div>
                 </div>
                 <div class="codex-recording-controls">
+                    <button class="codex-control-btn" id="codex-laser-btn" title="Laser Pointer">
+                        <svg viewBox="0 0 24 24" class="codex-control-icon">
+                            <circle cx="12" cy="12" r="3" fill="currentColor"/>
+                            <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/>
+                            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </button>
                     <button class="codex-control-btn" id="codex-pause-btn" title="Pause">
                         <svg viewBox="0 0 24 24" class="codex-control-icon">
                             <rect x="6" y="4" width="4" height="16" fill="currentColor"/>
@@ -54,8 +61,8 @@ class RecordingBar {
                 border-radius: 24px;
                 box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
                 z-index: 999999;
-                min-width: 280px;
-                max-width: 320px;
+                min-width: 320px;
+                max-width: 360px;
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
             }
             
@@ -148,10 +155,17 @@ class RecordingBar {
     }
 
     setupEventListeners() {
+        const laserBtn = document.getElementById('codex-laser-btn');
         const pauseBtn = document.getElementById('codex-pause-btn');
         const muteBtn = document.getElementById('codex-mute-btn');
         const stopBtn = document.getElementById('codex-stop-btn');
 
+        console.log("Recording-bar: Setting up event listeners", { laserBtn, pauseBtn, muteBtn, stopBtn });
+
+        laserBtn?.addEventListener('click', () => {
+            console.log("Recording-bar: Laser button clicked!");
+            this.toggleLaser();
+        });
         pauseBtn?.addEventListener('click', () => this.togglePause());
         muteBtn?.addEventListener('click', () => this.toggleMute());
         stopBtn?.addEventListener('click', () => this.stopRecording());
@@ -279,8 +293,196 @@ class RecordingBar {
         });
     }
 
+    toggleLaser() {
+        console.log("Recording-bar: toggleLaser clicked");
+        
+        try {
+            // Check if laser pointer exists, if not create it inline
+            if (!window.codexLaserPointer) {
+                console.log("Recording-bar: Creating laser pointer inline");
+                this.createLaserPointer();
+            }
+            
+            // Toggle laser pointer
+            const isEnabled = window.codexLaserPointer.toggle();
+            this.updateLaserButton(isEnabled);
+            console.log("Recording-bar: Laser pointer toggled, enabled:", isEnabled);
+        } catch (error) {
+            console.error("Recording-bar: Error in toggleLaser", error);
+        }
+    }
+
+    createLaserPointer() {
+        // Inline laser pointer class
+        class LaserPointer {
+            constructor() {
+                this.isEnabled = false;
+                this.pointerElement = null;
+                this.rippleElement = null;
+                this.mousePosition = { x: 0, y: 0 };
+            }
+
+            create() {
+                // Create laser pointer element
+                this.pointerElement = document.createElement('div');
+                this.pointerElement.className = 'codex-laser-pointer';
+                this.pointerElement.style.cssText = `
+                    position: fixed;
+                    width: 30px;
+                    height: 30px;
+                    pointer-events: none;
+                    z-index: 999998;
+                    transform: translate(-50%, -50%);
+                    display: none;
+                `;
+                
+                // Create the red dot
+                const dot = document.createElement('div');
+                dot.style.cssText = `
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 20px;
+                    height: 20px;
+                    background: radial-gradient(circle, rgba(255, 0, 0, 0.8) 0%, rgba(255, 0, 0, 0.4) 50%, transparent 100%);
+                    border-radius: 50%;
+                    transform: translate(-50%, -50%);
+                    box-shadow: 0 0 20px rgba(255, 0, 0, 0.6);
+                    animation: laserPulse 1.5s infinite;
+                `;
+                
+                // Create ripple element
+                this.rippleElement = document.createElement('div');
+                this.rippleElement.style.cssText = `
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 40px;
+                    height: 40px;
+                    border: 2px solid rgba(255, 0, 0, 0.6);
+                    border-radius: 50%;
+                    transform: translate(-50%, -50%);
+                    opacity: 0;
+                `;
+                
+                this.pointerElement.appendChild(dot);
+                this.pointerElement.appendChild(this.rippleElement);
+                document.body.appendChild(this.pointerElement);
+                
+                // Add styles
+                this.addStyles();
+                this.setupEventListeners();
+            }
+
+            addStyles() {
+                if (document.getElementById('laser-pointer-styles')) return;
+                
+                const style = document.createElement('style');
+                style.id = 'laser-pointer-styles';
+                style.textContent = `
+                    @keyframes laserPulse {
+                        0% { transform: translate(-50%, -50%) scale(1); }
+                        50% { transform: translate(-50%, -50%) scale(1.2); }
+                        100% { transform: translate(-50%, -50%) scale(1); }
+                    }
+                    
+                    @keyframes laserRipple {
+                        0% {
+                            transform: translate(-50%, -50%) scale(1);
+                            opacity: 1;
+                        }
+                        100% {
+                            transform: translate(-50%, -50%) scale(2.5);
+                            opacity: 0;
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            setupEventListeners() {
+                document.addEventListener('mousemove', (e) => {
+                    if (!this.isEnabled) return;
+                    this.mousePosition = { x: e.clientX, y: e.clientY };
+                    this.updatePosition();
+                });
+                
+                document.addEventListener('click', (e) => {
+                    if (!this.isEnabled) return;
+                    this.createRipple();
+                });
+            }
+
+            updatePosition() {
+                if (!this.pointerElement) return;
+                this.pointerElement.style.left = this.mousePosition.x + 'px';
+                this.pointerElement.style.top = this.mousePosition.y + 'px';
+            }
+
+            createRipple() {
+                if (!this.rippleElement) return;
+                this.rippleElement.style.animation = 'none';
+                this.rippleElement.offsetHeight; // Force reflow
+                this.rippleElement.style.animation = 'laserRipple 0.6s ease-out';
+            }
+
+            enable() {
+                if (!this.pointerElement) this.create();
+                this.isEnabled = true;
+                this.pointerElement.style.display = 'block';
+                this.updatePosition();
+            }
+
+            disable() {
+                this.isEnabled = false;
+                if (this.pointerElement) {
+                    this.pointerElement.style.display = 'none';
+                }
+            }
+
+            toggle() {
+                if (this.isEnabled) {
+                    this.disable();
+                } else {
+                    this.enable();
+                }
+                return this.isEnabled;
+            }
+
+            destroy() {
+                this.disable();
+                if (this.pointerElement) {
+                    this.pointerElement.remove();
+                    this.pointerElement = null;
+                }
+            }
+        }
+
+        // Create global instance
+        window.codexLaserPointer = new LaserPointer();
+        console.log("Recording-bar: Created inline laser pointer");
+    }
+
+    updateLaserButton(isEnabled) {
+        const laserBtn = document.getElementById('codex-laser-btn');
+        if (laserBtn) {
+            if (isEnabled) {
+                laserBtn.style.background = 'rgba(255, 59, 48, 0.3)';
+                laserBtn.style.color = '#ff3b30';
+            } else {
+                laserBtn.style.background = 'transparent';
+                laserBtn.style.color = 'rgba(255, 255, 255, 0.8)';
+            }
+        }
+    }
+
     stopRecording() {
         console.log("Recording-bar: Stop recording clicked");
+        
+        // Clean up laser pointer if it exists
+        if (window.codexLaserPointer) {
+            window.codexLaserPointer.destroy();
+        }
         
         // Always route through background script - it will handle both desktop and tab recording
         chrome.runtime.sendMessage({

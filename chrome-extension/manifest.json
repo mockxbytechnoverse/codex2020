@@ -31,5 +31,11 @@
         "js": ["content-script.js"],
         "run_at": "document_start"
       }
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": ["laser-pointer.js"],
+        "matches": ["<all_urls>"]
+      }
     ]
 }
