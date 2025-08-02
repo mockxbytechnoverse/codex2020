@@ -122,6 +122,98 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
   }
 
+  // Handle recording from popup
+  if (message.type === "START_TAB_RECORDING_FROM_POPUP" && message.tabId) {
+    console.log("Background: Starting tab recording from popup for tab", message.tabId);
+    
+    // Inject recording bar and content recording script
+    chrome.scripting.executeScript({
+      target: { tabId: message.tabId },
+      files: ['recording-bar.js', 'content-recording.js']
+    }, () => {
+      // Send message to show recording bar
+      chrome.tabs.sendMessage(message.tabId, {
+        type: 'SHOW_RECORDING_BAR'
+      });
+      
+      // Add debug logging
+      console.log("Background: Attempting to get media stream ID for tab", message.tabId);
+      
+      // Get the tab first to ensure we have the proper context
+      chrome.tabs.get(message.tabId, (tab) => {
+        if (chrome.runtime.lastError) {
+          console.error("Error getting tab:", chrome.runtime.lastError);
+          sendResponse({ success: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+        
+        console.log("Background: Got tab info", tab);
+        
+        // Use chrome.tabCapture.getMediaStreamId with consumerTabId
+        chrome.tabCapture.getMediaStreamId({
+          targetTabId: message.tabId,
+          consumerTabId: message.tabId
+        }, (streamId) => {
+          if (chrome.runtime.lastError) {
+            console.error("Error getting media stream ID:", chrome.runtime.lastError);
+            console.log("Background: Tab capture error details:", {
+              tabId: message.tabId,
+              error: chrome.runtime.lastError.message
+            });
+            
+            chrome.notifications.create({
+              type: 'basic',
+              
+              title: 'Recording Error',
+              message: 'Failed to start recording. Please try clicking the extension icon instead.'
+            });
+            return;
+          }
+          
+          console.log("Background: Got stream ID successfully:", streamId);
+          
+          // Send the streamId to the content script to start recording
+          chrome.tabs.sendMessage(message.tabId, {
+            type: 'START_RECORDING_WITH_STREAM_ID',
+            streamId: streamId,
+            description: message.description
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.error("Error sending message to content script:", chrome.runtime.lastError);
+            } else {
+              console.log("Background: Content script response:", response);
+            }
+          });
+        });
+      });
+    });
+    
+    if (sendResponse) {
+      sendResponse({ success: true });
+    }
+    return true;
+  }
+  
+  // Handle stop recording from recording bar
+  if (message.type === "STOP_RECORDING_FROM_BAR") {
+    console.log("Background: Stopping recording from recording bar");
+    
+    // Get the sender tab
+    const tabId = sender.tab ? sender.tab.id : null;
+    
+    if (tabId) {
+      // Send stop message to content script
+      chrome.tabs.sendMessage(tabId, {
+        type: 'STOP_RECORDING'
+      });
+    }
+    
+    if (sendResponse) {
+      sendResponse({ success: true });
+    }
+    return true;
+  }
+  
   // Handle screen recording start
   if (message.type === "START_RECORDING" && message.tabId) {
     console.log("Background: Starting screen recording for tab", message.tabId);
@@ -302,6 +394,61 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+  
+  // Handle notification requests
+  if (message.type === "SHOW_NOTIFICATION") {
+    chrome.notifications.create(message.options);
+    if (sendResponse) {
+      sendResponse({ success: true });
+    }
+    return true;
+  }
+  
+  // Handle desktop capture request
+  if (message.type === "REQUEST_DESKTOP_CAPTURE") {
+    console.log("Background: Requesting desktop capture from sender:", sender);
+    
+    // For desktop capture from popup, we need to get the active tab
+    if (!sender.tab) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+          console.log("Background: Using active tab for desktop capture:", tabs[0].id);
+          chrome.desktopCapture.chooseDesktopMedia(
+            ['screen', 'window', 'tab'],
+            tabs[0],
+            (streamId) => {
+              if (streamId) {
+                console.log("Desktop capture granted, streamId:", streamId);
+                sendResponse({ streamId: streamId });
+              } else {
+                console.log("Desktop capture cancelled");
+                sendResponse({ streamId: null });
+              }
+            }
+          );
+        } else {
+          console.error("No active tab found for desktop capture");
+          sendResponse({ streamId: null, error: "No active tab found" });
+        }
+      });
+    } else {
+      chrome.desktopCapture.chooseDesktopMedia(
+        ['screen', 'window', 'tab'],
+        sender.tab,
+        (streamId) => {
+          if (streamId) {
+            console.log("Desktop capture granted, streamId:", streamId);
+            sendResponse({ streamId: streamId });
+          } else {
+            console.log("Desktop capture cancelled");
+            sendResponse({ streamId: null });
+          }
+        }
+      );
+    }
+    return true;
+  }
+  
 });
 
 // Validate server identity
