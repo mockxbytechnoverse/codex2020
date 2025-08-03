@@ -288,7 +288,7 @@ function showCountdown(callback) {
     }, 1000);
 }
 
-// Enhanced screenshot capture with glass feedback
+// Enhanced screenshot capture with glass feedback and review interface
 screenshotCard.addEventListener('click', async () => {
     try {
         // Visual feedback
@@ -296,32 +296,80 @@ screenshotCard.addEventListener('click', async () => {
         
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         
-        chrome.runtime.sendMessage({
-            type: 'CAPTURE_SCREENSHOT',
-            tabId: tab.id
+        // Check if we can inject cursor selection into this tab
+        if (tab.url.startsWith('chrome://') || 
+            tab.url.startsWith('chrome-extension://') ||
+            tab.url.startsWith('edge://') ||
+            tab.url.startsWith('about:')) {
+            // Use fallback screenshot method for browser pages
+            chrome.runtime.sendMessage({
+                type: 'CAPTURE_SCREENSHOT_FALLBACK',
+                tabId: tab.id
+            }, handleScreenshotResponse);
+            return;
+        }
+        
+        // Inject cursor selection script
+        await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['cursor-selection.js']
+        });
+        
+        // Start selection mode
+        chrome.tabs.sendMessage(tab.id, {
+            type: 'START_SELECTION_MODE'
         }, (response) => {
             if (response && response.success) {
-                // Success animation
+                // Success animation and close overlay
                 const icon = screenshotCard.querySelector('.icon-large');
                 icon.style.transform = 'scale(1.2)';
                 setTimeout(() => {
                     icon.style.transform = 'scale(1)';
                 }, 300);
                 
-                chrome.notifications.create({
-                    type: 'basic',
-                    title: 'Screenshot Captured',
-                    message: 'Screenshot saved successfully'
-                });
+                // Close floating overlay to allow selection
+                hideOverlay();
             } else {
-                showError('Failed to capture screenshot');
+                // Fallback to direct screenshot
+                chrome.runtime.sendMessage({
+                    type: 'CAPTURE_SCREENSHOT_FALLBACK',
+                    tabId: tab.id
+                }, handleScreenshotResponse);
             }
         });
+        
     } catch (error) {
-        console.error('Error capturing screenshot:', error);
-        showError('Failed to capture screenshot');
+        console.error('Error starting screenshot capture:', error);
+        // Fallback to direct screenshot
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        chrome.runtime.sendMessage({
+            type: 'CAPTURE_SCREENSHOT_FALLBACK',
+            tabId: tab.id
+        }, handleScreenshotResponse);
     }
 });
+
+// Handle screenshot response (used by fallback method)
+function handleScreenshotResponse(response) {
+    if (response && response.success) {
+        // Success animation
+        const icon = screenshotCard.querySelector('.icon-large');
+        icon.style.transform = 'scale(1.2)';
+        setTimeout(() => {
+            icon.style.transform = 'scale(1)';
+        }, 300);
+        
+        // Open review interface
+        chrome.tabs.create({
+            url: chrome.runtime.getURL('screenshot-review.html')
+        });
+        
+        // Close floating overlay
+        hideOverlay();
+    } else {
+        showError('Failed to capture screenshot');
+    }
+}
 
 // Record tab with enhanced interactions
 recordTabCard.addEventListener('click', async () => {

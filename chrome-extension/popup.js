@@ -324,33 +324,69 @@ function showError(message) {
 
 // Event Listeners
 
-// Screenshot card
+// Screenshot card - now opens review interface
 screenshotCard.addEventListener('click', async () => {
     try {
         // Get current tab
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         
-        // Send message to background script
-        chrome.runtime.sendMessage({
-            type: 'CAPTURE_SCREENSHOT',
-            tabId: tab.id
+        // Check if we can inject cursor selection into this tab
+        if (tab.url.startsWith('chrome://') || 
+            tab.url.startsWith('chrome-extension://') ||
+            tab.url.startsWith('edge://') ||
+            tab.url.startsWith('about:')) {
+            // Use fallback screenshot method for browser pages
+            chrome.runtime.sendMessage({
+                type: 'CAPTURE_SCREENSHOT_FALLBACK',
+                tabId: tab.id
+            }, handleScreenshotResponse);
+            return;
+        }
+        
+        // Inject cursor selection script
+        await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['cursor-selection.js']
+        });
+        
+        // Start selection mode
+        chrome.tabs.sendMessage(tab.id, {
+            type: 'START_SELECTION_MODE'
         }, (response) => {
             if (response && response.success) {
-                chrome.notifications.create({
-                    type: 'basic',
-                    
-                    title: 'Screenshot Captured',
-                    message: 'Screenshot saved successfully'
-                });
+                // Close popup to allow selection
+                window.close();
             } else {
-                showError('Failed to capture screenshot');
+                // Fallback to direct screenshot
+                chrome.runtime.sendMessage({
+                    type: 'CAPTURE_SCREENSHOT_FALLBACK',
+                    tabId: tab.id
+                }, handleScreenshotResponse);
             }
         });
+        
     } catch (error) {
-        console.error('Error capturing screenshot:', error);
-        showError('Failed to capture screenshot');
+        console.error('Error starting screenshot capture:', error);
+        // Fallback to direct screenshot
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        chrome.runtime.sendMessage({
+            type: 'CAPTURE_SCREENSHOT_FALLBACK',
+            tabId: tab.id
+        }, handleScreenshotResponse);
     }
 });
+
+// Handle screenshot response (used by fallback method)
+function handleScreenshotResponse(response) {
+    if (response && response.success) {
+        // Open review interface
+        chrome.tabs.create({
+            url: chrome.runtime.getURL('screenshot-review.html')
+        });
+    } else {
+        showError('Failed to capture screenshot');
+    }
+}
 
 // Record tab card - automatically records current tab
 recordTabCard.addEventListener('click', async () => {

@@ -581,6 +581,126 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
+  // Handle screenshot selection capture
+  if (message.type === "CAPTURE_SELECTION") {
+    console.log("Background: Capturing selection screenshot");
+    
+    const tabId = sender.tab ? sender.tab.id : null;
+    if (!tabId) {
+      sendResponse({ success: false, error: "No tab ID available" });
+      return true;
+    }
+    
+    chrome.storage.local.get(["browserConnectorSettings"], (result) => {
+      const settings = result.browserConnectorSettings || {
+        serverHost: "localhost",
+        serverPort: 3025,
+      };
+
+      validateServerIdentity(settings.serverHost, settings.serverPort)
+        .then((isValid) => {
+          if (!isValid) {
+            console.error("Cannot capture screenshot: Not connected to server");
+            // Still capture for review even if server unavailable
+          }
+
+          // Capture the full tab screenshot
+          captureScreenshotForReview(tabId, message.selectionRect, message.viewport, sendResponse);
+        })
+        .catch((error) => {
+          console.error("Error validating server:", error);
+          // Still capture for review even if validation fails
+          captureScreenshotForReview(tabId, message.selectionRect, sendResponse);
+        });
+    });
+    return true;
+  }
+  
+  // Handle fallback screenshot capture (for browser pages)
+  if (message.type === "CAPTURE_SCREENSHOT_FALLBACK") {
+    console.log("Background: Capturing fallback screenshot");
+    
+    captureScreenshotForReview(message.tabId, null, null, sendResponse);
+    return true;
+  }
+  
+  // Handle retake screenshot request
+  if (message.type === "RETAKE_SCREENSHOT") {
+    console.log("Background: Retaking screenshot");
+    
+    // Clear current screenshot data
+    chrome.storage.local.remove(['currentScreenshot']);
+    
+    // Trigger new screenshot capture
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          type: 'START_SELECTION_MODE'
+        }, (response) => {
+          sendResponse({ success: response && response.success });
+        });
+      } else {
+        sendResponse({ success: false, error: "No active tab found" });
+      }
+    });
+    return true;
+  }
+  
+  // Handle cancel screenshot request
+  if (message.type === "CANCEL_SCREENSHOT") {
+    console.log("Background: Cancelling screenshot");
+    
+    // Clear current screenshot data
+    chrome.storage.local.remove(['currentScreenshot']);
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  // Handle close review interface
+  if (message.type === "CLOSE_REVIEW_INTERFACE") {
+    console.log("Background: Closing review interface");
+    
+    // Clear current screenshot data
+    chrome.storage.local.remove(['currentScreenshot']);
+    
+    // Close the review tab if it exists
+    chrome.tabs.query({ url: chrome.runtime.getURL('screenshot-review.html') }, (tabs) => {
+      tabs.forEach(tab => {
+        chrome.tabs.remove(tab.id);
+      });
+    });
+    
+    sendResponse({ success: true });
+    return true;
+  }
+  
+  // Handle save screenshot with metadata
+  if (message.type === "SAVE_SCREENSHOT_WITH_METADATA") {
+    console.log("Background: Saving screenshot with metadata");
+    
+    saveScreenshotWithMetadata(message.data, sendResponse);
+    return true;
+  }
+  
+  // Handle inject cursor selection script
+  if (message.type === "INJECT_CURSOR_SELECTION") {
+    console.log("Background: Injecting cursor selection script");
+    
+    chrome.scripting.executeScript({
+      target: { tabId: message.tabId },
+      files: ['cursor-selection.js']
+    }, () => {
+      if (chrome.runtime.lastError) {
+        console.error("Background: Failed to inject cursor selection:", chrome.runtime.lastError);
+        sendResponse({ success: false, error: chrome.runtime.lastError.message });
+      } else {
+        console.log("Background: Cursor selection script injected successfully");
+        sendResponse({ success: true });
+      }
+    });
+    return true;
+  }
+  
 });
 
 // Handle desktop recording setup in background
@@ -1031,5 +1151,245 @@ function captureAndSendScreenshot(message, settings, sendResponse) {
         }
       );
     });
+  });
+}
+
+// Function to capture screenshot for review interface
+async function captureScreenshotForReview(tabId, selectionRect, viewport, sendResponse) {
+  chrome.tabs.get(tabId, (tab) => {
+    if (chrome.runtime.lastError) {
+      console.error("Error getting tab:", chrome.runtime.lastError);
+      sendResponse({
+        success: false,
+        error: chrome.runtime.lastError.message,
+      });
+      return;
+    }
+
+    // Get all windows to find the one containing our tab
+    chrome.windows.getAll({ populate: true }, (windows) => {
+      const targetWindow = windows.find((w) =>
+        w.tabs.some((t) => t.id === tabId)
+      );
+
+      if (!targetWindow) {
+        console.error("Could not find window containing the tab");
+        sendResponse({
+          success: false,
+          error: "Could not find window containing the tab",
+        });
+        return;
+      }
+
+      // Capture screenshot of the window containing our tab
+      chrome.tabs.captureVisibleTab(
+        targetWindow.id,
+        { format: "png" },
+        async (dataUrl) => {
+          if (chrome.runtime.lastError) {
+            console.error("Error capturing screenshot:", chrome.runtime.lastError);
+            sendResponse({
+              success: false,
+              error: chrome.runtime.lastError.message,
+            });
+            return;
+          }
+
+          // For now, send the full screenshot and selection info to review interface
+          // The review interface will handle cropping on the client side
+          let finalDataUrl = dataUrl;
+
+          // Prepare screenshot data for review
+          const screenshotData = {
+            dataUrl: finalDataUrl,
+            url: tab.url,
+            title: tab.title,
+            timestamp: new Date().toISOString(),
+            selectionRect: selectionRect,
+            viewport: viewport
+          };
+
+          // Store screenshot data for review interface
+          chrome.storage.local.set({ currentScreenshot: screenshotData }, () => {
+            // Open review interface
+            chrome.tabs.create({
+              url: chrome.runtime.getURL('screenshot-review.html')
+            }, (reviewTab) => {
+              sendResponse({ success: true, reviewTabId: reviewTab.id });
+            });
+          });
+        }
+      );
+    });
+  });
+}
+
+// Function to save screenshot with metadata
+async function saveScreenshotWithMetadata(data, sendResponse) {
+  try {
+    chrome.storage.local.get(["browserConnectorSettings"], async (result) => {
+      const settings = result.browserConnectorSettings || {
+        serverHost: "localhost",
+        serverPort: 3025,
+      };
+
+      // Prepare metadata
+      const metadata = {
+        screenshot: {
+          filename: generateScreenshotFilename(data.isAnnotated),
+          timestamp: data.timestamp,
+          url: data.url,
+          pageTitle: data.title
+        },
+        userInput: {
+          description: data.description,
+          includeBrowserLogs: data.includeBrowserLogs
+        },
+        annotations: [], // Will be populated in Phase 2
+        browserLogs: data.includeBrowserLogs ? await captureBrowserLogs() : null
+      };
+
+      // Send to server - use existing screenshot endpoint for now
+      try {
+        const serverUrl = `http://${settings.serverHost}:${settings.serverPort}/screenshot`;
+        console.log(`Sending screenshot to ${serverUrl}`);
+
+        const response = await fetch(serverUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            data: data.dataUrl,
+            description: data.description,
+            metadata: metadata
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server responded with status ${response.status}: ${response.statusText}`);
+        }
+
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await response.text();
+          console.error("Server returned non-JSON response:", text.substring(0, 200));
+          throw new Error("Server returned HTML instead of JSON. Check if the server endpoint exists.");
+        }
+
+        const result = await response.json();
+        
+        if (result.error) {
+          sendResponse({ success: false, error: result.error });
+        } else {
+          console.log("Screenshot with metadata saved successfully:", result.path);
+          sendResponse({
+            success: true,
+            path: result.path,
+            metadataPath: result.path // For now, until server supports separate metadata files
+          });
+        }
+      } catch (error) {
+        console.error("Error sending screenshot with metadata:", error);
+        sendResponse({
+          success: false,
+          error: error.message || "Failed to save screenshot with metadata",
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Error in saveScreenshotWithMetadata:", error);
+    sendResponse({
+      success: false,
+      error: error.message || "Failed to save screenshot with metadata",
+    });
+  }
+}
+
+// Generate screenshot filename
+function generateScreenshotFilename(isAnnotated = false) {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const prefix = isAnnotated ? 'screenshot-annotated' : 'screenshot';
+  return `${prefix}-${timestamp}.png`;
+}
+
+// Capture browser logs (placeholder for Phase 3)
+async function captureBrowserLogs() {
+  // This will be implemented in Phase 3
+  return {
+    console: [],
+    network: [],
+    errors: []
+  };
+}
+
+// Crop screenshot to selection rectangle
+async function cropScreenshot(dataUrl, selectionRect, viewport) {
+  return new Promise((resolve, reject) => {
+    try {
+      console.log('Cropping screenshot with selection:', selectionRect);
+      console.log('Viewport info:', viewport);
+      
+      const img = new Image();
+      img.onload = () => {
+        try {
+          console.log('Original image dimensions:', img.naturalWidth, 'x', img.naturalHeight);
+          
+          // Use device pixel ratio from the viewport data
+          const devicePixelRatio = viewport?.devicePixelRatio || 1;
+          console.log('Device pixel ratio:', devicePixelRatio);
+          
+          // Scale selection coordinates by device pixel ratio
+          // Note: Chrome captures the visible tab, so we don't need to account for scroll
+          const scaledLeft = selectionRect.left * devicePixelRatio;
+          const scaledTop = selectionRect.top * devicePixelRatio;
+          const scaledWidth = selectionRect.width * devicePixelRatio;
+          const scaledHeight = selectionRect.height * devicePixelRatio;
+          
+          console.log('Scaled coordinates:', {
+            left: scaledLeft,
+            top: scaledTop,
+            width: scaledWidth,
+            height: scaledHeight
+          });
+          
+          // Create canvas with the selection size (not scaled)
+          const canvas = document.createElement('canvas');
+          canvas.width = selectionRect.width;
+          canvas.height = selectionRect.height;
+          const ctx = canvas.getContext('2d');
+          
+          // Draw the cropped portion using scaled coordinates
+          ctx.drawImage(
+            img,
+            scaledLeft,
+            scaledTop,
+            scaledWidth,
+            scaledHeight,
+            0,
+            0,
+            selectionRect.width,
+            selectionRect.height
+          );
+          
+          // Convert canvas to data URL
+          const croppedDataUrl = canvas.toDataURL('image/png');
+          console.log('Successfully cropped screenshot');
+          resolve(croppedDataUrl);
+          
+        } catch (error) {
+          console.error('Error in crop operation:', error);
+          reject(new Error('Failed to crop image: ' + error.message));
+        }
+      };
+      
+      img.onerror = () => reject(new Error('Failed to load image for cropping'));
+      img.src = dataUrl;
+      
+    } catch (error) {
+      console.error('Error setting up crop operation:', error);
+      reject(new Error('Failed to create canvas for cropping: ' + error.message));
+    }
   });
 }

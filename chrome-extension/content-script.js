@@ -635,18 +635,76 @@ function initializeOverlay() {
 
 // Event handlers
 function handleScreenshot() {
-    getCurrentTabId().then(tabId => {
-        chrome.runtime.sendMessage({
-            type: 'CAPTURE_SCREENSHOT',
-            tabId: tabId
-        }, (response) => {
-            if (response && response.success) {
-                showNotification('Screenshot captured successfully!', 'success');
-            } else {
-                showNotification('Failed to capture screenshot', 'error');
+    getCurrentTabId().then(async tabId => {
+        try {
+            // Check if we can inject cursor selection into this tab
+            const currentUrl = window.location.href;
+            if (currentUrl.startsWith('chrome://') || 
+                currentUrl.startsWith('chrome-extension://') ||
+                currentUrl.startsWith('edge://') ||
+                currentUrl.startsWith('about:')) {
+                // Use fallback screenshot method for browser pages
+                chrome.runtime.sendMessage({
+                    type: 'CAPTURE_SCREENSHOT_FALLBACK',
+                    tabId: tabId
+                }, (response) => {
+                    if (response && response.success) {
+                        hideOverlay();
+                        showNotification('Opening screenshot review...', 'success');
+                    } else {
+                        showNotification('Failed to capture screenshot', 'error');
+                    }
+                });
+                return;
             }
-        });
+            
+            // Inject cursor selection script and start selection mode
+            chrome.runtime.sendMessage({
+                type: 'INJECT_CURSOR_SELECTION',
+                tabId: tabId
+            }, (response) => {
+                if (response && response.success) {
+                    // Wait a moment for script to load, then start selection
+                    setTimeout(() => {
+                        if (window.VizualCursorSelection) {
+                            window.VizualCursorSelection.startSelectionMode();
+                            hideOverlay(); // Hide overlay to allow selection
+                        } else {
+                            // Still fallback if injection failed
+                            chrome.runtime.sendMessage({
+                                type: 'CAPTURE_SCREENSHOT_FALLBACK',
+                                tabId: tabId
+                            }, handleFallbackResponse);
+                        }
+                    }, 100);
+                } else {
+                    // Fallback to direct screenshot if injection failed
+                    chrome.runtime.sendMessage({
+                        type: 'CAPTURE_SCREENSHOT_FALLBACK',
+                        tabId: tabId
+                    }, handleFallbackResponse);
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error starting screenshot capture:', error);
+            // Fallback to direct screenshot
+            chrome.runtime.sendMessage({
+                type: 'CAPTURE_SCREENSHOT_FALLBACK',
+                tabId: tabId
+            }, handleFallbackResponse);
+        }
     });
+    
+    // Helper function for fallback screenshot response
+    function handleFallbackResponse(response) {
+        if (response && response.success) {
+            hideOverlay();
+            showNotification('Opening screenshot review...', 'success');
+        } else {
+            showNotification('Failed to capture screenshot', 'error');
+        }
+    }
 }
 
 function handleTabRecording() {

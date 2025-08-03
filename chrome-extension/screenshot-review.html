@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshot Review - VizualAI</title>
+    <link rel="stylesheet" href="screenshot-review.css">
+</head>
+<body>
+    <div class="review-container">
+        <!-- Header with close button -->
+        <div class="review-header">
+            <button class="close-btn" id="close-btn" aria-label="Close review">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Main content area -->
+        <div class="review-content">
+            <!-- Screenshot display area -->
+            <div class="screenshot-container">
+                <img id="screenshot-image" class="screenshot-image" alt="Screenshot preview" />
+                <div class="loading-spinner" id="loading-spinner">
+                    <div class="spinner"></div>
+                    <p>Processing screenshot...</p>
+                </div>
+            </div>
+
+            <!-- Description input area -->
+            <div class="description-section">
+                <label for="description-input" class="description-label">
+                    Add description (optional)
+                </label>
+                <textarea 
+                    id="description-input" 
+                    class="description-input" 
+                    placeholder="Describe what this screenshot shows..."
+                    rows="3"
+                ></textarea>
+                
+                <!-- Browser logs checkbox -->
+                <div class="checkbox-section">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="include-logs-checkbox" class="checkbox">
+                        <span class="checkbox-custom"></span>
+                        <span class="checkbox-text">Include browser logs with screenshot</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="action-buttons">
+                <button class="btn btn-secondary" id="retake-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z" stroke="currentColor" stroke-width="2"/>
+                        <path d="M8 21l0-10M16 21l0-10" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Retake
+                </button>
+                
+                <button class="btn btn-secondary" id="annotate-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="2"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Annotate
+                </button>
+                
+                <button class="btn btn-tertiary" id="cancel-btn">
+                    Cancel
+                </button>
+                
+                <button class="btn btn-primary" id="save-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" stroke="currentColor" stroke-width="2"/>
+                        <polyline points="17,21 17,13 7,13 7,21" stroke="currentColor" stroke-width="2"/>
+                        <polyline points="7,3 7,8 15,8" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success/Error notifications -->
+    <div class="notification" id="notification">
+        <div class="notification-content">
+            <span class="notification-icon" id="notification-icon">✓</span>
+            <span class="notification-message" id="notification-message">Screenshot saved successfully!</span>
+        </div>
+    </div>
+
+    <script src="screenshot-review.js"></script>
+</body>
+</html>

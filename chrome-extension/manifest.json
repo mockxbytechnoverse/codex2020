@@ -33,7 +33,13 @@
     ],
         "web_accessible_resources": [
         {
-            "resources": ["laser-pointer.js"],
+            "resources": [
+                "laser-pointer.js",
+                "cursor-selection.js",
+                "screenshot-review.html",
+                "screenshot-review.css",
+                "screenshot-review.js"
+            ],
             "matches": ["<all_urls>"]
         }
     ]
