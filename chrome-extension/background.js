@@ -1638,3 +1638,93 @@ async function cropScreenshot(dataUrl, selectionRect, viewport) {
     }
   });
 }
+
+// WebSocket connection for MCP screenshot requests (when DevTools is not open)
+let mcpWebSocket = null;
+let mcpReconnectTimer = null;
+
+function setupMCPWebSocket() {
+  // Don't create multiple connections
+  if (mcpWebSocket && mcpWebSocket.readyState === WebSocket.OPEN) {
+    return;
+  }
+
+  chrome.storage.local.get(['browserConnectorSettings'], (result) => {
+    const settings = result.browserConnectorSettings || {
+      serverHost: 'localhost',
+      serverPort: 3025
+    };
+
+    const wsUrl = `ws://${settings.serverHost}:${settings.serverPort}/extension-ws`;
+    console.log('Background: Connecting to MCP WebSocket:', wsUrl);
+
+    mcpWebSocket = new WebSocket(wsUrl);
+
+    mcpWebSocket.onopen = () => {
+      console.log('Background: MCP WebSocket connected');
+      clearTimeout(mcpReconnectTimer);
+    };
+
+    mcpWebSocket.onmessage = async (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        console.log('Background: Received MCP WebSocket message:', message.type);
+
+        if (message.type === 'take-screenshot') {
+          console.log('Background: Handling MCP screenshot request');
+          
+          // Get current active tab
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs[0]) {
+              // Capture screenshot of active tab
+              chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
+                if (chrome.runtime.lastError) {
+                  console.error('Background: Screenshot capture failed:', chrome.runtime.lastError);
+                  mcpWebSocket.send(JSON.stringify({
+                    type: 'screenshot-error',
+                    error: chrome.runtime.lastError.message,
+                    requestId: message.requestId
+                  }));
+                  return;
+                }
+
+                console.log('Background: Screenshot captured successfully for MCP');
+                mcpWebSocket.send(JSON.stringify({
+                  type: 'screenshot-data',
+                  data: dataUrl,
+                  requestId: message.requestId
+                }));
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Background: Error handling MCP WebSocket message:', error);
+      }
+    };
+
+    mcpWebSocket.onclose = () => {
+      console.log('Background: MCP WebSocket closed, will retry in 5 seconds');
+      mcpWebSocket = null;
+      mcpReconnectTimer = setTimeout(setupMCPWebSocket, 5000);
+    };
+
+    mcpWebSocket.onerror = (error) => {
+      console.error('Background: MCP WebSocket error:', error);
+    };
+  });
+}
+
+// Initialize MCP WebSocket when extension starts
+setupMCPWebSocket();
+
+// Also setup when server settings change
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local' && changes.browserConnectorSettings) {
+    console.log('Background: Browser connector settings changed, reconnecting MCP WebSocket');
+    if (mcpWebSocket) {
+      mcpWebSocket.close();
+    }
+    setTimeout(setupMCPWebSocket, 1000);
+  }
+});
