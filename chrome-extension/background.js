@@ -1,26 +1,44 @@
-// Handle extension icon click for recording
+// Handle extension icon click to toggle overlay
 chrome.action.onClicked.addListener((tab) => {
-  console.log("Extension icon clicked, toggling recording for tab:", tab.id);
+  console.log("Extension icon clicked, toggling overlay for tab:", tab.id);
   
-  // Check if we have an active recording for this tab
-  if (global.activeRecordings && global.activeRecordings.has(tab.id)) {
-    // Stop recording
-    chrome.runtime.sendMessage({
-      type: "STOP_RECORDING",
-      tabId: tab.id
+  // Send message to content script to toggle the floating overlay
+  chrome.tabs.sendMessage(tab.id, {
+    type: "TOGGLE_OVERLAY"
+  }).catch((error) => {
+    console.log("Could not send message to content script:", error);
+    // If content script isn't loaded, inject it first
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['content-script.js']
+    }).then(() => {
+      // Try sending the message again after injection
+      chrome.tabs.sendMessage(tab.id, {
+        type: "TOGGLE_OVERLAY"
+      }).catch((err) => {
+        console.error("Failed to send overlay toggle message:", err);
+      });
+    }).catch((injectError) => {
+      console.error("Failed to inject content script:", injectError);
     });
-  } else {
-    // Start recording
-    chrome.runtime.sendMessage({
-      type: "START_RECORDING", 
-      tabId: tab.id,
-      description: "Recording started via extension icon"
-    });
-  }
+  });
 });
 
 // Listen for messages from the devtools panel
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Handle get current tab ID requests from content script
+  if (message.type === "GET_CURRENT_TAB_ID") {
+    if (sender.tab && sender.tab.id) {
+      sendResponse({ tabId: sender.tab.id });
+    } else {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tabId = tabs[0]?.id || null;
+        sendResponse({ tabId: tabId });
+      });
+    }
+    return true;
+  }
+  
   if (message.type === "GET_CURRENT_URL" && message.tabId) {
     getCurrentTabUrl(message.tabId)
       .then((url) => {
@@ -124,7 +142,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle recording from popup
   if (message.type === "START_TAB_RECORDING_FROM_POPUP" && message.tabId) {
-    console.log("Background: Starting tab recording from popup for tab", message.tabId);
+    console.log("Background: Starting tab recording from popup for tab", message.tabId, "with microphone:", message.includeMicrophone);
     
     // Inject recording bar and content recording script
     chrome.scripting.executeScript({
@@ -176,7 +194,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           chrome.tabs.sendMessage(message.tabId, {
             type: 'START_RECORDING_WITH_STREAM_ID',
             streamId: streamId,
-            description: message.description
+            description: message.description,
+            includeMicrophone: message.includeMicrophone
           }, (response) => {
             if (chrome.runtime.lastError) {
               console.error("Error sending message to content script:", chrome.runtime.lastError);
@@ -435,7 +454,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   // Handle desktop capture request and complete setup
   if (message.type === "REQUEST_DESKTOP_CAPTURE") {
-    console.log("Background: Requesting desktop capture from sender:", sender);
+    console.log("Background: Requesting desktop capture from sender:", sender, "with microphone:", message.includeMicrophone);
     
     // For desktop capture from popup, we need to get the active tab
     if (!sender.tab) {
@@ -450,7 +469,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 console.log("Background: Desktop capture granted, streamId:", streamId);
                 
                 // Instead of just returning stream ID, handle the entire setup here
-                await handleDesktopRecordingSetup(streamId, tabs[0].id, message.description || '');
+                await handleDesktopRecordingSetup(streamId, tabs[0].id, message.description || '', message.includeMicrophone);
                 sendResponse({ success: true });
               } else {
                 console.log("Background: Desktop capture cancelled");
@@ -470,7 +489,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         async (streamId) => {
           if (streamId) {
             console.log("Background: Desktop capture granted, streamId:", streamId);
-            await handleDesktopRecordingSetup(streamId, sender.tab.id, message.description || '');
+            await handleDesktopRecordingSetup(streamId, sender.tab.id, message.description || '', message.includeMicrophone);
             sendResponse({ success: true });
           } else {
             console.log("Background: Desktop capture cancelled");
@@ -565,8 +584,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 // Handle desktop recording setup in background
-async function handleDesktopRecordingSetup(streamId, activeTabId, description) {
-  console.log("Background: Setting up desktop recording with streamId:", streamId, "activeTab:", activeTabId);
+async function handleDesktopRecordingSetup(streamId, activeTabId, description, includeMicrophone = false) {
+  console.log("Background: Setting up desktop recording with streamId:", streamId, "activeTab:", activeTabId, "microphone:", includeMicrophone);
   
   try {
     // Get all tabs to inject recording bar (desktop recording can be shown on any tab)
@@ -600,7 +619,8 @@ async function handleDesktopRecordingSetup(streamId, activeTabId, description) {
       chrome.tabs.sendMessage(activeTabId, {
         type: 'START_DESKTOP_RECORDING_WITH_STREAM_ID',
         streamId: streamId,
-        description: description
+        description: description,
+        includeMicrophone: includeMicrophone
       }, (response) => {
         if (chrome.runtime.lastError) {
           console.error('Background: Error sending desktop recording message:', chrome.runtime.lastError);
@@ -636,7 +656,8 @@ async function handleDesktopRecordingSetup(streamId, activeTabId, description) {
         desktopRecording: {
           isActive: true,
           startTime: Date.now(),
-          description: description
+          description: description,
+          includeMicrophone: includeMicrophone
         },
         desktopRecordingTabId: activeTabId // Store which tab has the recording
       });

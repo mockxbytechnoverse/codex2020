@@ -12,12 +12,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("Content-recording: Received message", message.type);
     
     if (message.type === 'START_RECORDING_WITH_STREAM_ID') {
-        console.log("Content-recording: Starting tab recording with stream ID:", message.streamId);
-        startRecordingWithStreamId(message.streamId, message.description);
+        console.log("Content-recording: Starting tab recording with stream ID:", message.streamId, "includeMicrophone:", message.includeMicrophone);
+        startRecordingWithStreamId(message.streamId, message.description, message.includeMicrophone);
         sendResponse({ success: true });
     } else if (message.type === 'START_DESKTOP_RECORDING_WITH_STREAM_ID') {
-        console.log("Content-recording: Starting desktop recording with stream ID:", message.streamId);
-        startDesktopRecordingWithStreamId(message.streamId, message.description)
+        console.log("Content-recording: Starting desktop recording with stream ID:", message.streamId, "includeMicrophone:", message.includeMicrophone);
+        startDesktopRecordingWithStreamId(message.streamId, message.description, message.includeMicrophone)
             .then(() => {
                 console.log("Content-recording: Desktop recording started successfully");
                 sendResponse({ success: true });
@@ -56,19 +56,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 });
 
-async function startRecordingWithStreamId(streamId, description) {
-    console.log("Content-recording: startRecordingWithStreamId called with:", { streamId, description });
+async function startRecordingWithStreamId(streamId, description, includeMicrophone = false) {
+    console.log("Content-recording: startRecordingWithStreamId called with:", { streamId, description, includeMicrophone });
     
     try {
         recordingDescription = description || '';
         
         console.log("Content-recording: Setting up constraints for tab recording");
         
-        // Check if microphone should be included
-        const { isMicrophoneMuted, hasMicrophonePermission } = await chrome.storage.local.get(['isMicrophoneMuted', 'hasMicrophonePermission']);
-        const includeMicrophone = !isMicrophoneMuted && hasMicrophonePermission;
-        
-        console.log("Content-recording: Audio settings:", { isMicrophoneMuted, hasMicrophonePermission, includeMicrophone });
+        console.log("Content-recording: Audio settings:", { includeMicrophone });
         
         // Always get tab video and tab audio
         const tabConstraints = {
@@ -96,7 +92,7 @@ async function startRecordingWithStreamId(streamId, description) {
         // If microphone is enabled and we have permission, get microphone stream and mix it
         if (includeMicrophone) {
             try {
-                console.log("Content-recording: Requesting microphone stream");
+                console.log("Content-recording: Requesting microphone stream for tab recording");
                 microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 
                 // Create a new MediaStream that combines tab audio/video with microphone audio
@@ -199,19 +195,15 @@ async function startRecordingWithStreamId(streamId, description) {
     }
 }
 
-async function startDesktopRecordingWithStreamId(streamId, description) {
-    console.log("Content-recording: startDesktopRecordingWithStreamId called with:", { streamId, description });
+async function startDesktopRecordingWithStreamId(streamId, description, includeMicrophone = false) {
+    console.log("Content-recording: startDesktopRecordingWithStreamId called with:", { streamId, description, includeMicrophone });
     
     try {
         recordingDescription = description || '';
         
         console.log("Content-recording: Setting up constraints for desktop recording");
         
-        // Check if microphone should be included
-        const { isMicrophoneMuted, hasMicrophonePermission } = await chrome.storage.local.get(['isMicrophoneMuted', 'hasMicrophonePermission']);
-        const includeMicrophone = !isMicrophoneMuted && hasMicrophonePermission;
-        
-        console.log("Content-recording: Desktop audio settings:", { isMicrophoneMuted, hasMicrophonePermission, includeMicrophone });
+        console.log("Content-recording: Desktop audio settings:", { includeMicrophone });
         
         // Get desktop video stream (desktop capture doesn't support audio directly)
         const desktopConstraints = {
@@ -242,7 +234,7 @@ async function startDesktopRecordingWithStreamId(streamId, description) {
         // If microphone is enabled and we have permission, add microphone audio
         if (includeMicrophone) {
             try {
-                console.log("Content-recording: Adding microphone to desktop recording");
+                console.log("Content-recording: Requesting microphone stream for desktop recording");
                 microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 
                 // For desktop recording, we only have video from desktop and audio from microphone

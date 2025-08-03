@@ -21,9 +21,8 @@
     "background": {
       "service_worker": "background.js"
     },
-    "action": {
-      "default_popup": "popup-redesign.html",
-      "default_title": "VizualAI Browser Tools - Screen Recording & Developer Tools"
+        "action": {
+        "default_title": "VizualAI Browser Tools - Screen Recording & Developer Tools"
     },
     "content_scripts": [
       {
@@ -32,10 +31,10 @@
         "run_at": "document_start"
       }
     ],
-    "web_accessible_resources": [
-      {
-        "resources": ["laser-pointer.js"],
-        "matches": ["<all_urls>"]
-      }
+        "web_accessible_resources": [
+        {
+            "resources": ["laser-pointer.js"],
+            "matches": ["<all_urls>"]
+        }
     ]
 }
