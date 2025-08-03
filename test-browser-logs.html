@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Logs Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .test-button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background: #005a87;
+        }
+        .console-output {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Browser Logs Capture Test Page</h1>
+    
+    <div class="test-section">
+        <h2>Console Logs Test</h2>
+        <p>These buttons will generate different types of console logs:</p>
+        <button class="test-button" onclick="testConsoleLog()">Test console.log</button>
+        <button class="test-button" onclick="testConsoleError()">Test console.error</button>
+        <button class="test-button" onclick="testConsoleWarn()">Test console.warn</button>
+        <button class="test-button" onclick="testConsoleInfo()">Test console.info</button>
+        <button class="test-button" onclick="testObjectLog()">Test object logging</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Error Generation Test</h2>
+        <p>These buttons will generate JavaScript errors:</p>
+        <button class="test-button" onclick="testReferenceError()">Generate ReferenceError</button>
+        <button class="test-button" onclick="testTypeError()">Generate TypeError</button>
+        <button class="test-button" onclick="testPromiseRejection()">Test Promise Rejection</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Network Test</h2>
+        <p>These buttons will generate network requests (some will fail):</p>
+        <button class="test-button" onclick="testSuccessfulRequest()">Successful Request</button>
+        <button class="test-button" onclick="testFailedRequest()">Failed Request (404)</button>
+        <button class="test-button" onclick="testSlowRequest()">Slow Request</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Debug Console Output</h2>
+        <button class="test-button" onclick="showCapturedLogs()">Show Captured Logs</button>
+        <div id="debug-output" class="console-output">Debug output will appear here...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Instructions</h2>
+        <ol>
+            <li><strong>Load the extension</strong> and ensure it's active on this page</li>
+            <li><strong>Click various test buttons</strong> to generate console logs, errors, and network requests</li>
+            <li><strong>Take a screenshot</strong> using the extension (click extension icon → screenshot)</li>
+            <li><strong>Enable browser logs</strong> in the screenshot review interface</li>
+            <li><strong>Save the screenshot</strong> and check the JSON file for populated browserLogs</li>
+            <li><strong>Use "Show Captured Logs"</strong> to debug if logs are being captured</li>
+        </ol>
+    </div>
+
+    <script>
+        // Console log tests
+        function testConsoleLog() {
+            console.log('Test console.log message with timestamp:', new Date().toISOString());
+        }
+
+        function testConsoleError() {
+            console.error('Test console.error message - this should be captured');
+        }
+
+        function testConsoleWarn() {
+            console.warn('Test console.warn message - warning level');
+        }
+
+        function testConsoleInfo() {
+            console.info('Test console.info message - info level');
+        }
+
+        function testObjectLog() {
+            const testObject = {
+                name: 'Test Object',
+                timestamp: new Date().toISOString(),
+                nested: {
+                    value: 42,
+                    array: [1, 2, 3]
+                }
+            };
+            console.log('Test object logging:', testObject);
+        }
+
+        // Error tests
+        function testReferenceError() {
+            try {
+                // This will generate a ReferenceError
+                nonExistentFunction();
+            } catch (e) {
+                console.error('Caught ReferenceError:', e.message);
+            }
+        }
+
+        function testTypeError() {
+            try {
+                // This will generate a TypeError
+                null.someProperty.access();
+            } catch (e) {
+                console.error('Caught TypeError:', e.message);
+            }
+        }
+
+        function testPromiseRejection() {
+            // This will generate an unhandled promise rejection
+            Promise.reject('Test promise rejection - should be captured');
+        }
+
+        // Network tests
+        function testSuccessfulRequest() {
+            fetch('/test-browser-logs.html')
+                .then(response => {
+                    console.log('Successful request:', response.status);
+                })
+                .catch(error => {
+                    console.error('Request error:', error);
+                });
+        }
+
+        function testFailedRequest() {
+            fetch('/nonexistent-endpoint-404')
+                .then(response => {
+                    console.log('Response status:', response.status);
+                })
+                .catch(error => {
+                    console.error('Failed request error:', error);
+                });
+        }
+
+        function testSlowRequest() {
+            // This would be slow if the endpoint existed
+            fetch('/slow-endpoint?delay=6000')
+                .then(response => {
+                    console.log('Slow request completed:', response.status);
+                })
+                .catch(error => {
+                    console.error('Slow request error:', error);
+                });
+        }
+
+        // Debug function to show captured logs
+        function showCapturedLogs() {
+            const debugOutput = document.getElementById('debug-output');
+            
+            const status = {
+                timestamp: new Date().toISOString(),
+                injectionStatus: !!window.__vizualai_logs_injected,
+                functionExists: !!window.captureBrowserLogsFromPage,
+                consoleLogsExists: !!window.__vizualai_console_logs,
+                errorsExists: !!window.__vizualai_errors,
+                consoleLogsCount: window.__vizualai_console_logs ? window.__vizualai_console_logs.length : 0,
+                errorsCount: window.__vizualai_errors ? window.__vizualai_errors.length : 0
+            };
+
+            let output = '=== Browser Logs Capture Status ===\n';
+            output += JSON.stringify(status, null, 2);
+            
+            if (window.captureBrowserLogsFromPage) {
+                try {
+                    const captured = window.captureBrowserLogsFromPage();
+                    output += '\n\n=== Captured Logs Sample ===\n';
+                    output += `Console logs: ${captured.console.length}\n`;
+                    output += `Network logs: ${captured.network.length}\n`;
+                    output += `Error logs: ${captured.errors.length}\n`;
+                    
+                    if (captured.console.length > 0) {
+                        output += '\n--- Recent Console Logs ---\n';
+                        captured.console.slice(-5).forEach(log => {
+                            output += `[${log.timestamp}] ${log.level.toUpperCase()}: ${log.message}\n`;
+                        });
+                    }
+                    
+                    if (captured.errors.length > 0) {
+                        output += '\n--- Recent Errors ---\n';
+                        captured.errors.slice(-3).forEach(error => {
+                            output += `[${error.timestamp}] ${error.message}\n`;
+                        });
+                    }
+                    
+                    if (captured.network.length > 0) {
+                        output += '\n--- Network Issues ---\n';
+                        captured.network.slice(-3).forEach(net => {
+                            output += `[${net.timestamp}] ${net.type.toUpperCase()}: ${net.url} (${net.status})\n`;
+                        });
+                    }
+                } catch (e) {
+                    output += '\n\n=== Error calling captureBrowserLogsFromPage ===\n';
+                    output += e.message;
+                }
+            } else {
+                output += '\n\n=== captureBrowserLogsFromPage function not available ===\n';
+            }
+
+            debugOutput.textContent = output;
+        }
+
+        // Generate some initial logs when page loads
+        console.log('🧪 Test page loaded at:', new Date().toISOString());
+        console.info('This page is designed to test browser logs capture functionality');
+        
+        // Generate a test error after a delay
+        setTimeout(() => {
+            console.warn('Delayed warning message - should be captured if logs injection is working');
+        }, 1000);
+    </script>
+</body>
+</html>
