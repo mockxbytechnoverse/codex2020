@@ -312,6 +312,13 @@ async function saveScreenshot() {
             tabId: screenshotData.tabId // Include tabId for browser logs capture
         };
         
+        // Debug log the save data
+        console.log('Saving screenshot with data:', {
+            includeBrowserLogs: saveData.includeBrowserLogs,
+            tabId: saveData.tabId,
+            hasDescription: !!saveData.description
+        });
+
         // Send save request to background script
         chrome.runtime.sendMessage({
             type: 'SAVE_SCREENSHOT_WITH_METADATA',

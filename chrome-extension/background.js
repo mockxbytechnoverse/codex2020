@@ -699,7 +699,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   // Handle save screenshot with metadata
   if (message.type === "SAVE_SCREENSHOT_WITH_METADATA") {
-    console.log("Background: Saving screenshot with metadata");
+    console.log("Background: Saving screenshot with metadata", {
+      includeBrowserLogs: message.data.includeBrowserLogs,
+      tabId: message.data.tabId
+    });
     
     saveScreenshotWithMetadata(message.data, sendResponse);
     return true;
@@ -1354,7 +1357,48 @@ function generateScreenshotFilename(isAnnotated = false) {
   return `${prefix}-${timestamp}.png`;
 }
 
-// Browser logs capture using script injection (simpler approach)
+// Ensure browser logs capture script is injected into the specified tab
+async function ensureBrowserLogsScriptInjected(tabId) {
+  try {
+    console.log('Ensuring browser logs script is injected into tab:', tabId);
+    
+    // First check if the script is already injected
+    const checkResult = await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      func: () => {
+        return {
+          hasScript: !!window.__vizualai_logs_injected,
+          hasFunction: !!window.captureBrowserLogsFromPage,
+          hasLogs: !!window.__vizualai_console_logs
+        };
+      }
+    });
+
+    const scriptStatus = checkResult[0].result;
+    console.log('Script injection status:', scriptStatus);
+
+    if (!scriptStatus.hasScript || !scriptStatus.hasFunction) {
+      console.log('Browser logs script not found, injecting...');
+      
+      // Inject the browser logs capture script
+      await chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        files: ['browser-logs-capture.js']
+      });
+
+      console.log('Browser logs script injected successfully');
+      
+      // Give it a moment to initialize
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } else {
+      console.log('Browser logs script already present');
+    }
+  } catch (error) {
+    console.error('Error ensuring browser logs script injection:', error);
+  }
+}
+
+// Browser logs capture using injected script that intercepts console calls
 async function captureBrowserLogs(tabId) {
   try {
     console.log('Capturing browser logs for tab:', tabId);
@@ -1368,38 +1412,74 @@ async function captureBrowserLogs(tabId) {
       };
     }
 
-    // Inject a script to collect logs from the page
+    // First, ensure the browser logs capture script is injected into this tab
+    await ensureBrowserLogsScriptInjected(tabId);
+
+    // Inject a script to collect logs from the injected browser-logs-capture.js
     return new Promise((resolve) => {
       chrome.scripting.executeScript({
         target: { tabId: tabId },
         func: () => {
-          // Collect any logs that might be available
+          // Get logs from the injected script's global variables
           const logs = {
             console: [],
             network: [],
             errors: []
           };
 
-          // Try to get performance entries for network errors
-          try {
-            const perfEntries = performance.getEntriesByType('resource');
-            perfEntries.forEach(entry => {
-              // Look for failed requests
-              if (entry.transferSize === 0 && !entry.name.startsWith('chrome-extension://')) {
-                logs.network.push({
-                  url: entry.name,
-                  method: 'GET',
-                  status: 0,
-                  timestamp: new Date(performance.timeOrigin + entry.startTime).toISOString()
-                });
-              }
-            });
-          } catch (e) {
-            console.error('Error collecting network logs:', e);
+          // Debug what's available
+          console.log('VizualAI Debug: Checking for log capture functions...');
+          console.log('  - captureBrowserLogsFromPage exists:', !!window.captureBrowserLogsFromPage);
+          console.log('  - __vizualai_console_logs exists:', !!window.__vizualai_console_logs);
+          console.log('  - __vizualai_errors exists:', !!window.__vizualai_errors);
+          console.log('  - __vizualai_logs_injected:', window.__vizualai_logs_injected);
+
+          // Get captured logs from the injected script
+          if (window.captureBrowserLogsFromPage) {
+            try {
+              const capturedLogs = window.captureBrowserLogsFromPage();
+              logs.console = capturedLogs.console || [];
+              logs.network = capturedLogs.network || [];
+              logs.errors = capturedLogs.errors || [];
+              console.log('VizualAI: Retrieved logs via function:', {
+                console: logs.console.length,
+                network: logs.network.length,
+                errors: logs.errors.length
+              });
+            } catch (e) {
+              console.error('Error calling captureBrowserLogsFromPage:', e);
+            }
+          } else {
+            console.log('VizualAI: Using fallback log retrieval...');
+            // Fallback: try to get logs directly from global variables
+            if (window.__vizualai_console_logs) {
+              logs.console = window.__vizualai_console_logs.slice(-50);
+              console.log('VizualAI: Retrieved', logs.console.length, 'console logs from global variable');
+            }
+            if (window.__vizualai_errors) {
+              logs.errors = window.__vizualai_errors.slice(-20);
+              console.log('VizualAI: Retrieved', logs.errors.length, 'errors from global variable');
+            }
+            
+            // Get network data from performance API
+            try {
+              const perfEntries = performance.getEntriesByType('resource');
+              perfEntries.forEach(entry => {
+                // Look for failed requests
+                if (entry.transferSize === 0 && !entry.name.startsWith('chrome-extension://')) {
+                  logs.network.push({
+                    url: entry.name,
+                    method: 'GET',
+                    status: 0,
+                    timestamp: new Date(performance.timeOrigin + entry.startTime).toISOString()
+                  });
+                }
+              });
+            } catch (e) {
+              console.error('Error collecting network logs:', e);
+            }
           }
 
-          // For now, return what we can collect
-          // In a real implementation, we would have injected interceptors earlier
           return logs;
         }
       }, (results) => {
@@ -1418,16 +1498,6 @@ async function captureBrowserLogs(tabId) {
           network: [],
           errors: []
         };
-
-        // Add some sample data for testing
-        if (logs.console.length === 0) {
-          logs.console.push({
-            level: 'info',
-            message: 'Screenshot captured at ' + new Date().toISOString(),
-            timestamp: new Date().toISOString(),
-            source: 'console'
-          });
-        }
 
         console.log('Browser logs captured:', {
           console: logs.console.length,

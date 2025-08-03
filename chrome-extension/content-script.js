@@ -1,6 +1,25 @@
 // Content script for Browser Tools MCP
 // This script runs on web pages to show recording UI and floating overlay
 
+// Inject browser logs capture script immediately - before DOM content loads
+(function injectLogsCapture() {
+    try {
+        const script = document.createElement('script');
+        script.src = chrome.runtime.getURL('browser-logs-capture.js');
+        script.onload = function() {
+            console.log('VizualAI: Browser logs capture script injected successfully');
+            this.remove();
+        };
+        script.onerror = function() {
+            console.error('VizualAI: Failed to load browser logs capture script');
+        };
+        (document.head || document.documentElement).appendChild(script);
+        console.log('VizualAI: Injecting browser logs capture script...');
+    } catch (error) {
+        console.error('VizualAI: Error injecting browser logs capture script:', error);
+    }
+})();
+
 // State management
 let isOverlayVisible = false;
 let overlayContainer = null;

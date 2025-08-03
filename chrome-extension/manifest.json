@@ -38,7 +38,8 @@
                 "cursor-selection.js",
                 "screenshot-review.html",
                 "screenshot-review.css",
-                "screenshot-review.js"
+                "screenshot-review.js",
+                "browser-logs-capture.js"
             ],
             "matches": ["<all_urls>"]
         }
