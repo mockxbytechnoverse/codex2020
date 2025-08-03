@@ -264,14 +264,32 @@ server.tool(
         const result = await response.json();
 
         if (response.ok) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: "Successfully saved screenshot",
-              },
-            ],
-          };
+          // If screenshot data is included, return both text and image
+          if (result.screenshot) {
+            return {
+              content: [
+                {
+                  type: "text", 
+                  text: `Screenshot captured successfully${result.path ? ` and saved to: ${result.path}` : ''}`,
+                },
+                {
+                  type: "image",
+                  data: result.screenshot, // Base64 image data
+                  mimeType: "image/png",
+                },
+              ],
+            };
+          } else {
+            // Fallback for when only path is returned
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Successfully saved screenshot${result.path ? ` to: ${result.path}` : ''}`,
+                },
+              ],
+            };
+          }
         } else {
           return {
             content: [

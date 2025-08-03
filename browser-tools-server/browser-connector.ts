@@ -1707,7 +1707,9 @@ export class BrowserConnector {
         }
       }
 
+      // Return both screenshot data and file path for maximum flexibility
       res.json({
+        screenshot: cleanBase64, // Pure base64 data without data URL prefix
         path: fullPath,
         filename: filename,
       });
