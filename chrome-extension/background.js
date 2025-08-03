@@ -1249,10 +1249,10 @@ async function saveScreenshotWithMetadata(data, sendResponse) {
         browserLogs: data.includeBrowserLogs ? await captureBrowserLogs() : null
       };
 
-      // Send to server - use existing screenshot endpoint for now
+      // Send to server - use new screenshot-with-metadata endpoint
       try {
-        const serverUrl = `http://${settings.serverHost}:${settings.serverPort}/screenshot`;
-        console.log(`Sending screenshot to ${serverUrl}`);
+        const serverUrl = `http://${settings.serverHost}:${settings.serverPort}/screenshot-with-metadata`;
+        console.log(`Sending screenshot with metadata to ${serverUrl}`);
 
         const response = await fetch(serverUrl, {
           method: "POST",
@@ -1260,8 +1260,7 @@ async function saveScreenshotWithMetadata(data, sendResponse) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            data: data.dataUrl,
-            description: data.description,
+            screenshot: data.dataUrl,
             metadata: metadata
           }),
         });
@@ -1283,11 +1282,14 @@ async function saveScreenshotWithMetadata(data, sendResponse) {
         if (result.error) {
           sendResponse({ success: false, error: result.error });
         } else {
-          console.log("Screenshot with metadata saved successfully:", result.path);
+          console.log("Screenshot saved to:", result.screenshotPath);
+          console.log("Metadata saved to:", result.metadataPath);
           sendResponse({
             success: true,
-            path: result.path,
-            metadataPath: result.path // For now, until server supports separate metadata files
+            screenshotPath: result.screenshotPath,
+            metadataPath: result.metadataPath,
+            screenshotFilename: result.screenshotFilename,
+            metadataFilename: result.metadataFilename
           });
         }
       } catch (error) {

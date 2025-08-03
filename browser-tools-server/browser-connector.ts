@@ -1212,6 +1212,80 @@ export class BrowserConnector {
         }
       }
     );
+
+    // Add screenshot-with-metadata endpoint
+    this.app.post(
+      "/screenshot-with-metadata",
+      (req: express.Request, res: express.Response): void => {
+        console.log(
+          "Browser Connector: Received request to /screenshot-with-metadata endpoint"
+        );
+        console.log("Browser Connector: Request body:", req.body);
+        try {
+          const { screenshot, metadata, path: outputPath } = req.body;
+
+          if (!screenshot) {
+            console.log("Screenshot request missing screenshot data");
+            res.status(400).json({ error: "Missing screenshot data" });
+            return;
+          }
+
+          if (!metadata) {
+            console.log("Screenshot request missing metadata");
+            res.status(400).json({ error: "Missing metadata" });
+            return;
+          }
+
+          // Use provided path or default to downloads folder
+          const targetPath = outputPath || getDefaultDownloadsFolder();
+          console.log(`Using screenshot path: ${targetPath}`);
+
+          // Remove the data:image/png;base64, prefix
+          const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
+
+          // Create the full directory path if it doesn't exist
+          fs.mkdirSync(targetPath, { recursive: true });
+          console.log(`Created/verified directory: ${targetPath}`);
+
+          // Generate a unique filename using timestamp
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+          const baseFilename = metadata.screenshot?.filename || `screenshot-${timestamp}`;
+          
+          // Remove extension if present and add our own
+          const filenameWithoutExt = baseFilename.replace(/\.[^/.]+$/, "");
+          const screenshotFilename = `${filenameWithoutExt}.png`;
+          const metadataFilename = `${filenameWithoutExt}.json`;
+          
+          const screenshotPath = path.join(targetPath, screenshotFilename);
+          const metadataPath = path.join(targetPath, metadataFilename);
+          
+          console.log(`Saving screenshot to: ${screenshotPath}`);
+          console.log(`Saving metadata to: ${metadataPath}`);
+
+          // Write the screenshot file
+          fs.writeFileSync(screenshotPath, base64Data, "base64");
+          console.log("Screenshot saved successfully");
+
+          // Write the metadata file
+          fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), "utf8");
+          console.log("Metadata saved successfully");
+
+          res.json({
+            screenshotPath: screenshotPath,
+            metadataPath: metadataPath,
+            screenshotFilename: screenshotFilename,
+            metadataFilename: metadataFilename,
+          });
+        } catch (error: unknown) {
+          console.error("Error saving screenshot with metadata:", error);
+          if (error instanceof Error) {
+            res.status(500).json({ error: error.message });
+          } else {
+            res.status(500).json({ error: "An unknown error occurred" });
+          }
+        }
+      }
+    );
   }
 
   private async handleScreenshot(req: express.Request, res: express.Response) {
