@@ -237,6 +237,23 @@ function injectOverlayCSS() {
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif !important;
             contain: layout style paint !important;
             isolation: isolate !important;
+            /* NEW: Enhanced gradient with better color distribution */
+            background: linear-gradient(
+                135deg,
+                rgba(34, 211, 238, 0.15) 0%,
+                rgba(255, 255, 255, 0.06) 30%,
+                rgba(255, 255, 255, 0.08) 50%,
+                rgba(255, 255, 255, 0.06) 70%,
+                rgba(192, 132, 252, 0.15) 100%
+            ) !important;
+            backdrop-filter: blur(25px) saturate(200%) !important;
+            -webkit-backdrop-filter: blur(25px) saturate(200%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            border-radius: 24px !important;
+            box-shadow: 
+                0 16px 64px rgba(0, 0, 0, 0.15),
+                0 4px 32px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
         }
         
         /* Reset all child elements */
@@ -246,36 +263,23 @@ function injectOverlayCSS() {
             font-family: inherit !important;
         }
         
-        /* Glass Bubble Container */
+        /* Glass Bubble Container - Enhanced spacing */
         #vizualai-floating-overlay .glass-bubble-container {
-            background: rgba(255, 255, 255, 0.05) !important;
-            backdrop-filter: blur(25px) saturate(200%) !important;
-            -webkit-backdrop-filter: blur(25px) saturate(200%) !important;
-            border: 1px solid rgba(255, 255, 255, 0.25) !important;
-            border-radius: 32px !important;
-            padding: 24px !important;
-            box-shadow: 
-                0 16px 64px rgba(0, 0, 0, 0.15),
-                0 4px 32px rgba(0, 0, 0, 0.1),
-                inset 0 2px 0 rgba(255, 255, 255, 0.15) !important;
+            /* Remove all background/border styling - moved to main container */
+            padding: 40px !important;
             position: relative !important;
         }
         
-        /* Bubble glow effect */
+        /* Bubble glow effect - COMPLETELY REMOVED for troubleshooting */
         #vizualai-floating-overlay .glass-bubble-container::before {
             content: "" !important;
             position: absolute !important;
             inset: -2px !important;
-            background: linear-gradient(
-                135deg,
-                rgba(34, 211, 238, 0.2) 0%,
-                rgba(192, 132, 252, 0.2) 50%,
-                rgba(34, 211, 238, 0.2) 100%
-            ) !important;
+            /* background: REMOVED */
             border-radius: 34px !important;
             z-index: -1 !important;
-            opacity: 0.6 !important;
-            filter: blur(8px) !important;
+            opacity: 0 !important;
+            /* filter: REMOVED */
         }
         
         /* Main container */
@@ -284,26 +288,29 @@ function injectOverlayCSS() {
             flex-direction: column !important;
             width: 420px !important;
             min-height: auto !important;
-            gap: 16px !important;
-            padding: 20px !important;
+            gap: 24px !important;
+            padding: 0 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif !important;
             color: rgba(0, 0, 0, 0.9) !important;
             -webkit-font-smoothing: antialiased !important;
             -moz-osx-font-smoothing: grayscale !important;
         }
         
-        /* Glass Header */
+        /* Glass Header - Enhanced with more spacing */
         #vizualai-floating-overlay .glass-header {
             display: flex !important;
             align-items: center !important;
             justify-content: space-between !important;
-            background: rgba(255, 255, 255, 0.08) !important;
+            background: rgba(255, 255, 255, 0.12) !important;
             backdrop-filter: blur(20px) saturate(180%) !important;
             -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
             border-radius: 20px !important;
-            padding: 16px 20px !important;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+            padding: 20px 24px !important;
+            margin: 0 8px !important;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.15), 
+                inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
         }
         
         #vizualai-floating-overlay .header-actions {
@@ -361,32 +368,37 @@ function injectOverlayCSS() {
         #vizualai-floating-overlay .glass-content {
             display: flex !important;
             flex-direction: column !important;
-            gap: 12px !important;
+            gap: 20px !important;
         }
         
-        /* Action Cards */
+        /* Action Cards - Enhanced with spacing and better glass effect */
         #vizualai-floating-overlay .glass-action-card {
             display: flex !important;
             align-items: center !important;
             gap: 16px !important;
-            background: rgba(255, 255, 255, 0.08) !important;
+            background: rgba(255, 255, 255, 0.12) !important;
             backdrop-filter: blur(16px) saturate(160%) !important;
             -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
-            border: 1px solid rgba(255, 255, 255, 0.18) !important;
+            border: 1px solid rgba(255, 255, 255, 0.22) !important;
             border-radius: 20px !important;
             padding: 20px !important;
+            margin: 0 8px !important;
             cursor: pointer !important;
             transition: all 0.2s ease !important;
             position: relative !important;
             overflow: hidden !important;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 
+                0 6px 28px rgba(0, 0, 0, 0.12), 
+                inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
         }
         
         #vizualai-floating-overlay .glass-action-card:hover {
-            background: rgba(255, 255, 255, 0.12) !important;
-            border-color: rgba(255, 255, 255, 0.3) !important;
+            background: rgba(255, 255, 255, 0.18) !important;
+            border-color: rgba(255, 255, 255, 0.35) !important;
             transform: translateY(-2px) !important;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 
+                0 10px 40px rgba(0, 0, 0, 0.18), 
+                inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
         }
         
         #vizualai-floating-overlay .card-icon {
@@ -436,7 +448,7 @@ function injectOverlayCSS() {
         #vizualai-floating-overlay .glass-recording-container {
             display: grid !important;
             grid-template-columns: 1fr 1fr !important;
-            gap: 12px !important;
+            gap: 16px !important;
         }
         
         #vizualai-floating-overlay .recording-card {
@@ -460,13 +472,14 @@ function injectOverlayCSS() {
             font-size: 13px !important;
         }
         
-        /* Essential Controls */
+        /* Essential Controls - Enhanced spacing */
         #vizualai-floating-overlay .glass-essential-controls {
             display: flex !important;
             align-items: center !important;
-            gap: 12px !important;
+            gap: 16px !important;
             justify-content: center !important;
-            padding: 12px 0 !important;
+            padding: 16px 8px !important;
+            margin-top: 8px !important;
         }
         
         #vizualai-floating-overlay .glass-microphone-btn {
@@ -531,7 +544,7 @@ function injectOverlayCSS() {
             border-color: rgba(52, 199, 89, 0.4) !important;
         }
         
-        /* SVG Logo styling */
+        /* SVG Logo styling - GRADIENT RESTORED */
         #vizualai-floating-overlay .vizual-logo-glass svg {
             display: block !important;
         }
@@ -542,11 +555,6 @@ function injectOverlayCSS() {
             font-size: 24px !important;
         }
         
-        /* Fix logo colors - Vizual should be black, AI should be gradient */
-        #vizualai-floating-overlay .vizual-logo-glass svg text {
-            color: initial !important;
-        }
-        
         #vizualai-floating-overlay .vizual-logo-glass svg text[fill="#0F172A"] {
             fill: #0F172A !important;
         }
@@ -555,7 +563,6 @@ function injectOverlayCSS() {
             fill: url(#aiGradient) !important;
         }
         
-        /* Ensure gradient definition works */
         #vizualai-floating-overlay .vizual-logo-glass svg defs linearGradient {
             display: block !important;
         }
