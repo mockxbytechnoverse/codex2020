@@ -135,14 +135,6 @@ function createOverlayHTML() {
                 </div>
             </div>
 
-            <!-- Connection Status - Hidden by default -->
-            <div class="glass-connection-status" id="overlay-connection-status" role="status" aria-live="polite" style="display: none;">
-                <div class="status-glass-badge" id="overlay-status-badge">
-                    <span class="status-dot"></span>
-                    <span id="overlay-connection-text">Checking connection...</span>
-                </div>
-            </div>
-
             <!-- Recording Status - Hidden by default -->
             <div class="glass-recording-status" id="overlay-recording-status" role="status" aria-live="polite" style="display: none;">
                 <div class="status-glass-badge recording">
@@ -204,6 +196,14 @@ function createOverlayHTML() {
                     <span class="permission-icon" id="overlay-permission-icon">🔴</span>
                     <span id="overlay-permission-text">Allow Microphone Access</span>
                 </button>
+            </div>
+
+            <!-- Connection Status - Moved to bottom -->
+            <div class="glass-connection-status" id="overlay-connection-status" role="status" aria-live="polite" style="display: none;">
+                <div class="status-glass-badge" id="overlay-status-badge">
+                    <span class="status-dot"></span>
+                    <span id="overlay-connection-text">Checking connection...</span>
+                </div>
             </div>
 
         </div>
@@ -343,7 +343,7 @@ function injectOverlayCSS() {
         #vizualai-floating-overlay .glass-recording-status {
             display: none !important;
             justify-content: center !important;
-            margin: -8px 0 !important;
+            margin: 8px 0 0 0 !important; /* Moved to bottom, add top margin */
         }
         
         #vizualai-floating-overlay .glass-connection-status.visible,
@@ -362,6 +362,65 @@ function injectOverlayCSS() {
             border-radius: 12px !important;
             font-size: 12px !important;
             color: rgba(0, 0, 0, 0.8) !important;
+        }
+        
+        #vizualai-floating-overlay .status-glass-badge.connected {
+            background: rgba(52, 199, 89, 0.15) !important;
+            border-color: rgba(52, 199, 89, 0.3) !important;
+            color: #34c759 !important;
+        }
+        
+        #vizualai-floating-overlay .status-glass-badge.connected .status-dot::before {
+            content: '🟢' !important;
+        }
+        
+        #vizualai-floating-overlay .status-glass-badge.disconnected {
+            background: rgba(255, 59, 48, 0.15) !important;
+            border-color: rgba(255, 59, 48, 0.3) !important;
+            color: #ff3b30 !important;
+        }
+        
+        #vizualai-floating-overlay .status-glass-badge.disconnected .status-dot::before {
+            content: '🔴' !important;
+        }
+        
+        #vizualai-floating-overlay .status-glass-badge.checking {
+            background: rgba(255, 204, 0, 0.15) !important;
+            border-color: rgba(255, 204, 0, 0.3) !important;
+            color: #ffcc00 !important;
+        }
+        
+        #vizualai-floating-overlay .status-glass-badge.checking .status-dot::before {
+            content: '🟡' !important;
+        }
+        
+        #vizualai-floating-overlay .glass-connect-btn {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 4px 12px !important;
+            margin-left: 8px !important;
+            background: rgba(0, 122, 255, 0.15) !important;
+            backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(0, 122, 255, 0.3) !important;
+            border-radius: 8px !important;
+            color: #007aff !important;
+            font-size: 11px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            transition: all 0.15s ease !important;
+        }
+        
+        #vizualai-floating-overlay .glass-connect-btn:hover {
+            background: rgba(0, 122, 255, 0.25) !important;
+            border-color: rgba(0, 122, 255, 0.4) !important;
+            transform: scale(1.05) !important;
+        }
+        
+        #vizualai-floating-overlay .glass-connect-btn:disabled {
+            opacity: 0.6 !important;
+            cursor: not-allowed !important;
+            transform: none !important;
         }
         
         /* Glass Content */
@@ -575,6 +634,107 @@ function injectOverlayCSS() {
             stop-color: #C084FC !important;
         }
         
+        /* Server Settings Modal Styles */
+        .server-settings-overlay {
+            all: initial !important;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
+        }
+        
+        .server-settings-modal {
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            border-radius: 16px !important;
+            padding: 24px !important;
+            max-width: 400px !important;
+            width: 90% !important;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+        }
+        
+        .server-settings-modal h3 {
+            margin: 0 0 16px 0 !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            color: #000 !important;
+        }
+        
+        .server-settings-modal p {
+            margin: 0 0 12px 0 !important;
+            font-size: 14px !important;
+            color: rgba(0, 0, 0, 0.7) !important;
+        }
+        
+        .server-settings-modal ol {
+            margin: 0 0 20px 0 !important;
+            padding-left: 20px !important;
+            font-size: 13px !important;
+            color: rgba(0, 0, 0, 0.6) !important;
+        }
+        
+        .server-inputs {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 12px !important;
+            margin-bottom: 20px !important;
+        }
+        
+        .server-inputs label {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 4px !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            color: rgba(0, 0, 0, 0.8) !important;
+        }
+        
+        .server-inputs input {
+            padding: 8px 12px !important;
+            border: 1px solid rgba(0, 0, 0, 0.2) !important;
+            border-radius: 6px !important;
+            background: rgba(255, 255, 255, 0.8) !important;
+            font-size: 14px !important;
+            color: #000 !important;
+        }
+        
+        .settings-actions {
+            display: flex !important;
+            gap: 8px !important;
+            justify-content: flex-end !important;
+        }
+        
+        .settings-actions button {
+            padding: 8px 16px !important;
+            border: none !important;
+            border-radius: 6px !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            transition: all 0.15s ease !important;
+        }
+        
+        .settings-actions #test-connection-btn {
+            background: rgba(0, 122, 255, 0.1) !important;
+            color: #007aff !important;
+            border: 1px solid rgba(0, 122, 255, 0.3) !important;
+        }
+        
+        .settings-actions #save-settings-btn {
+            background: rgba(52, 199, 89, 0.1) !important;
+            color: #34c759 !important;
+            border: 1px solid rgba(52, 199, 89, 0.3) !important;
+        }
+        
+        .settings-actions #close-settings-btn {
+            background: rgba(0, 0, 0, 0.05) !important;
+            color: rgba(0, 0, 0, 0.7) !important;
+            border: 1px solid rgba(0, 0, 0, 0.2) !important;
+        }
+        
+        .settings-actions button:hover {
+            transform: scale(1.05) !important;
+            opacity: 0.9 !important;
+        }
+        
         /* Animations */
         @keyframes overlaySlideIn {
             0% {
@@ -642,8 +802,16 @@ function setupOverlayEventListeners() {
 }
 
 function initializeOverlay() {
+    console.log('VizualAI: Initializing overlay...');
+    
     // Check connection status
     checkConnectionStatus();
+    
+    // Check server connection status (with small delay to ensure DOM is ready)
+    setTimeout(() => {
+        console.log('VizualAI: Checking server connection...');
+        checkServerConnection();
+    }, 100);
     
     // Initialize microphone as muted by default
     const microphoneBtn = overlayContainer.querySelector('#overlay-microphone-button');
@@ -653,10 +821,11 @@ function initializeOverlay() {
         microphoneBtn.title = 'Unmute microphone';
     }
     
-    // Check permission status on initialization
+    // Check permission status on initialization  
     checkPermissionStatus();
     
     // Initialize other overlay functionality as needed
+    console.log('VizualAI: Overlay initialization complete');
 }
 
 // Event handlers
@@ -857,6 +1026,211 @@ function checkConnectionStatus() {
     
     // Keep status hidden for clean interface
     // Could be shown later if needed: statusContainer.style.display = 'flex';
+}
+
+async function checkServerConnection() {
+    console.log('VizualAI: checkServerConnection called');
+    console.log('VizualAI: overlayContainer exists:', !!overlayContainer);
+    
+    const statusContainer = overlayContainer.querySelector('#overlay-connection-status');
+    const statusText = overlayContainer.querySelector('#overlay-connection-text');
+    const statusBadge = overlayContainer.querySelector('#overlay-status-badge');
+    
+    console.log('VizualAI: Found elements:', {
+        statusContainer: !!statusContainer,
+        statusText: !!statusText, 
+        statusBadge: !!statusBadge
+    });
+    
+    if (!statusContainer || !statusText || !statusBadge) {
+        console.log('VizualAI: Missing required DOM elements for connection status');
+        return;
+    }
+    
+    // Show connection status while checking
+    console.log('VizualAI: Showing connection status...');
+    statusContainer.classList.add('visible');  // Add .visible class to override CSS
+    statusText.textContent = 'Checking connection...';
+    statusBadge.className = 'status-glass-badge checking';
+    console.log('VizualAI: Status container classes:', statusContainer.className);
+    console.log('VizualAI: Status text set to:', statusText.textContent);
+    
+    try {
+        // Get stored server settings
+        const settings = await new Promise((resolve) => {
+            chrome.storage.local.get(['browserConnectorSettings'], (result) => {
+                resolve(result.browserConnectorSettings || {
+                    serverHost: 'localhost',
+                    serverPort: 3025
+                });
+            });
+        });
+        
+        // Check server connection
+        console.log(`VizualAI: Attempting connection to http://${settings.serverHost}:${settings.serverPort}/.identity`);
+        const response = await fetch(`http://${settings.serverHost}:${settings.serverPort}/.identity`, {
+            signal: AbortSignal.timeout(3000)
+        });
+        
+        console.log('VizualAI: Server response status:', response.status);
+        
+        if (response.ok) {
+            const identity = await response.json();
+            console.log('VizualAI: Server identity:', identity);
+            
+            // Validate server signature
+            if (identity.signature === 'mcp-browser-connector-24x7') {
+                // Connected successfully
+                console.log('VizualAI: Server signature valid, showing connected status');
+                statusText.textContent = `Connected to ${identity.name || 'BrowserTools'} v${identity.version || '1.0'}`;
+                statusBadge.className = 'status-glass-badge connected';
+                
+                // Hide connection status after 5 seconds when connected
+                console.log('VizualAI: Connection successful, will auto-hide after 5 seconds');
+                setTimeout(() => {
+                    console.log('VizualAI: Auto-hiding connection status');
+                    if (statusContainer) {
+                        statusContainer.classList.remove('visible');
+                    }
+                }, 5000); // 5 seconds to show success
+            } else {
+                throw new Error('Invalid server signature');
+            }
+        } else {
+            throw new Error(`Server responded with status ${response.status}`);
+        }
+    } catch (error) {
+        console.error('VizualAI: Server connection failed:', error);
+        
+        // Show disconnected status with connect option
+        console.log('VizualAI: Showing disconnected status');
+        statusText.textContent = 'Server disconnected';
+        statusBadge.className = 'status-glass-badge disconnected';
+        
+        // Add connect button
+        addConnectButton(statusContainer);
+    }
+}
+
+function addConnectButton(statusContainer) {
+    // Check if connect button already exists
+    if (statusContainer.querySelector('.connect-btn')) return;
+    
+    const connectBtn = document.createElement('button');
+    connectBtn.className = 'glass-connect-btn connect-btn';
+    connectBtn.textContent = 'Connect';
+    connectBtn.title = 'Connect to BrowserTools server';
+    
+    connectBtn.addEventListener('click', async () => {
+        connectBtn.textContent = 'Connecting...';
+        connectBtn.disabled = true;
+        
+        // Attempt to discover and connect to server
+        chrome.runtime.sendMessage({ type: 'DISCOVER_SERVER' }, (response) => {
+            if (response && response.success) {
+                // Server found, recheck connection
+                setTimeout(() => checkServerConnection(), 1000);
+            } else {
+                // Show server settings or instructions
+                showServerSettings();
+            }
+            
+            connectBtn.textContent = 'Connect';
+            connectBtn.disabled = false;
+        });
+    });
+    
+    statusContainer.appendChild(connectBtn);
+}
+
+function showServerSettings() {
+    // Show a simple server configuration interface
+    const settingsOverlay = document.createElement('div');
+    settingsOverlay.className = 'server-settings-overlay';
+    settingsOverlay.innerHTML = `
+        <div class="server-settings-modal">
+            <h3>Server Settings</h3>
+            <p>Unable to connect to BrowserTools server. Please check:</p>
+            <ol>
+                <li>BrowserTools Node server is running</li>
+                <li>Server is running on the correct port (default: 3025)</li>
+                <li>No firewall blocking the connection</li>
+            </ol>
+            <div class="server-inputs">
+                <label>Host: <input type="text" id="server-host-input" value="localhost" placeholder="localhost"></label>
+                <label>Port: <input type="number" id="server-port-input" value="3025" placeholder="3025"></label>
+            </div>
+            <div class="settings-actions">
+                <button id="test-connection-btn">Test Connection</button>
+                <button id="save-settings-btn">Save Settings</button>
+                <button id="close-settings-btn">Close</button>
+            </div>
+        </div>
+    `;
+    
+    // Style the settings overlay
+    settingsOverlay.style.cssText = `
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        background: rgba(0, 0, 0, 0.5) !important;
+        backdrop-filter: blur(10px) !important;
+        z-index: 2147483648 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
+    `;
+    
+    document.body.appendChild(settingsOverlay);
+    
+    // Add event listeners
+    settingsOverlay.querySelector('#close-settings-btn').addEventListener('click', () => {
+        settingsOverlay.remove();
+    });
+    
+    settingsOverlay.querySelector('#test-connection-btn').addEventListener('click', async () => {
+        const host = settingsOverlay.querySelector('#server-host-input').value;
+        const port = parseInt(settingsOverlay.querySelector('#server-port-input').value);
+        
+        try {
+            const response = await fetch(`http://${host}:${port}/.identity`, {
+                signal: AbortSignal.timeout(3000)
+            });
+            
+            if (response.ok) {
+                const identity = await response.json();
+                if (identity.signature === 'mcp-browser-connector-24x7') {
+                    showNotification('Connection successful!', 'success');
+                } else {
+                    showNotification('Connected but invalid server signature', 'error');
+                }
+            } else {
+                showNotification('Connection failed', 'error');
+            }
+        } catch (error) {
+            showNotification('Connection failed: ' + error.message, 'error');
+        }
+    });
+    
+    settingsOverlay.querySelector('#save-settings-btn').addEventListener('click', () => {
+        const host = settingsOverlay.querySelector('#server-host-input').value;
+        const port = parseInt(settingsOverlay.querySelector('#server-port-input').value);
+        
+        chrome.storage.local.set({
+            browserConnectorSettings: {
+                serverHost: host,
+                serverPort: port
+            }
+        }, () => {
+            showNotification('Settings saved!', 'success');
+            settingsOverlay.remove();
+            // Recheck connection with new settings
+            setTimeout(() => checkServerConnection(), 1000);
+        });
+    });
 }
 
 function checkPermissionStatus() {

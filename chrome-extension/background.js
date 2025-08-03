@@ -39,6 +39,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
+  // Handle server discovery request from overlay
+  if (message.type === "DISCOVER_SERVER") {
+    discoverBrowserToolsServer()
+      .then((result) => {
+        sendResponse({ success: true, server: result });
+      })
+      .catch((error) => {
+        console.error("Server discovery failed:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true;
+  }
+  
   if (message.type === "GET_CURRENT_URL" && message.tabId) {
     getCurrentTabUrl(message.tabId)
       .then((url) => {
@@ -818,6 +831,43 @@ async function handleDesktopRecordingSetup(streamId, activeTabId, description, i
     console.error('Background: Error in desktop recording setup:', error);
     throw error;
   }
+}
+
+// Server discovery function
+async function discoverBrowserToolsServer() {
+  const hosts = ['localhost', '127.0.0.1'];
+  const ports = [3025, 3026, 3027, 3028, 3029, 3030];
+  
+  for (const host of hosts) {
+    for (const port of ports) {
+      try {
+        const response = await fetch(`http://${host}:${port}/.identity`, {
+          signal: AbortSignal.timeout(1000)
+        });
+        
+        if (response.ok) {
+          const identity = await response.json();
+          if (identity.signature === 'mcp-browser-connector-24x7') {
+            console.log(`Server discovered at ${host}:${port}`);
+            
+            // Save the discovered server settings
+            chrome.storage.local.set({
+              browserConnectorSettings: {
+                serverHost: host,
+                serverPort: port
+              }
+            });
+            
+            return { host, port, identity };
+          }
+        }
+      } catch (error) {
+        // Continue searching
+      }
+    }
+  }
+  
+  throw new Error('No BrowserTools server found');
 }
 
 // Validate server identity
