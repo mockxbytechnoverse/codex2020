@@ -217,11 +217,11 @@ function handleSelectionEnd(event) {
     
     console.log('Selection ended at:', selectionEnd);
     
-    // Validate selection (minimum size)
+    // Check if this is a click without drag (full tab screenshot)
     const selectionRect = getSelectionRect();
     if (selectionRect.width < 10 || selectionRect.height < 10) {
-        console.log('Selection too small, clearing');
-        clearSelection();
+        console.log('Click without drag detected - capturing full tab screenshot');
+        captureFullTabScreenshot();
         return;
     }
     
@@ -379,6 +379,21 @@ function captureSelection() {
     });
 }
 
+// Capture full tab screenshot (when user clicks without dragging)
+function captureFullTabScreenshot() {
+    console.log('Capturing full tab screenshot');
+    
+    // Stop selection mode
+    stopSelectionMode();
+    
+    // Send full tab screenshot request to background script with a unique timestamp
+    chrome.runtime.sendMessage({
+        type: 'CAPTURE_SCREENSHOT_FALLBACK',
+        tabId: null, // Will be determined by background script
+        timestamp: Date.now() // Add unique timestamp to force fresh capture
+    });
+}
+
 // Show selection instructions
 function showSelectionInstructions() {
     // Remove existing instructions
@@ -410,7 +425,7 @@ function showSelectionInstructions() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M9 11l3 3 8-8"/>
             </svg>
-            Click and drag to screenshot area • Press ESC to cancel
+            Click & drag to select area • Click once for full tab • ESC to cancel
         </div>
     `;
     
@@ -481,5 +496,6 @@ window.VizualCursorSelection = {
     stopSelectionMode,
     isSelectionMode: () => isSelectionMode,
     clearSelection,
-    getSelectionRect
+    getSelectionRect,
+    captureFullTabScreenshot
 };

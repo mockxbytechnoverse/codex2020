@@ -48,11 +48,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Load screenshot data
 async function loadScreenshotData() {
     try {
-        // Get screenshot data from chrome storage (set by background script)
-        const result = await chrome.storage.local.get(['currentScreenshot']);
+        // Add retry logic to ensure we get fresh data
+        let retries = 3;
+        let result = null;
         
-        if (result.currentScreenshot) {
+        while (retries > 0) {
+            // Get screenshot data from chrome storage (set by background script)
+            result = await chrome.storage.local.get(['currentScreenshot']);
+            
+            if (result.currentScreenshot) {
+                break;
+            }
+            
+            // Wait a bit and retry
+            await new Promise(resolve => setTimeout(resolve, 100));
+            retries--;
+        }
+        
+        if (result && result.currentScreenshot) {
             screenshotData = result.currentScreenshot;
+            console.log('Loaded screenshot data:', {
+                hasDataUrl: !!screenshotData.dataUrl,
+                hasSelectionRect: !!screenshotData.selectionRect,
+                timestamp: screenshotData.timestamp,
+                tabId: screenshotData.tabId,
+                uniqueId: screenshotData.uniqueId,
+                dataUrlPreview: screenshotData.dataUrl ? screenshotData.dataUrl.substring(0, 50) + '...' : 'none'
+            });
             
             // Crop the image if selection rectangle is provided
             let imageToDisplay = screenshotData.dataUrl;
@@ -286,7 +308,8 @@ async function saveScreenshot() {
             timestamp: new Date().toISOString(),
             url: screenshotData.url || '',
             title: screenshotData.title || '',
-            isAnnotated: isAnnotationMode
+            isAnnotated: isAnnotationMode,
+            tabId: screenshotData.tabId // Include tabId for browser logs capture
         };
         
         // Send save request to background script

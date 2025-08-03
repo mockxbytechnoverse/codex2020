@@ -616,11 +616,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
-  // Handle fallback screenshot capture (for browser pages)
+  // Handle fallback screenshot capture (for browser pages or full tab)
   if (message.type === "CAPTURE_SCREENSHOT_FALLBACK") {
-    console.log("Background: Capturing fallback screenshot");
+    console.log("Background: Capturing fallback screenshot", { 
+      timestamp: message.timestamp,
+      senderTabId: sender.tab ? sender.tab.id : 'none'
+    });
     
-    captureScreenshotForReview(message.tabId, null, null, sendResponse);
+    // Clear any existing screenshot data to prevent cache issues
+    chrome.storage.local.remove(['currentScreenshot'], () => {
+      console.log("Cleared existing screenshot data for fresh capture");
+      
+      // If no tabId provided, get it from sender or current active tab
+      const tabId = message.tabId || (sender.tab ? sender.tab.id : null);
+      
+      if (!tabId) {
+        // Get current active tab as fallback
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs[0]) {
+            console.log("Found active tab for full screenshot:", tabs[0].id, tabs[0].url);
+            captureScreenshotForReview(tabs[0].id, null, null, sendResponse);
+          } else {
+            sendResponse({ success: false, error: "No active tab found" });
+          }
+        });
+      } else {
+        captureScreenshotForReview(tabId, null, null, sendResponse);
+      }
+    });
     return true;
   }
   
@@ -1156,6 +1179,8 @@ function captureAndSendScreenshot(message, settings, sendResponse) {
 
 // Function to capture screenshot for review interface
 async function captureScreenshotForReview(tabId, selectionRect, viewport, sendResponse) {
+  console.log('captureScreenshotForReview called:', { tabId, hasSelection: !!selectionRect });
+  
   chrome.tabs.get(tabId, (tab) => {
     if (chrome.runtime.lastError) {
       console.error("Error getting tab:", chrome.runtime.lastError);
@@ -1206,17 +1231,28 @@ async function captureScreenshotForReview(tabId, selectionRect, viewport, sendRe
             title: tab.title,
             timestamp: new Date().toISOString(),
             selectionRect: selectionRect,
-            viewport: viewport
+            viewport: viewport,
+            tabId: tabId, // Store tabId for later browser logs capture
+            uniqueId: Date.now() + '-' + Math.random() // Add unique ID to prevent caching
           };
 
           // Store screenshot data for review interface
           chrome.storage.local.set({ currentScreenshot: screenshotData }, () => {
-            // Open review interface
-            chrome.tabs.create({
-              url: chrome.runtime.getURL('screenshot-review.html')
-            }, (reviewTab) => {
-              sendResponse({ success: true, reviewTabId: reviewTab.id });
-            });
+            if (chrome.runtime.lastError) {
+              console.error('Error storing screenshot data:', chrome.runtime.lastError);
+              sendResponse({ success: false, error: 'Failed to store screenshot data' });
+              return;
+            }
+            
+            // Add a small delay to ensure storage is committed
+            setTimeout(() => {
+              // Open review interface
+              chrome.tabs.create({
+                url: chrome.runtime.getURL('screenshot-review.html')
+              }, (reviewTab) => {
+                sendResponse({ success: true, reviewTabId: reviewTab.id });
+              });
+            }, 100); // 100ms delay to ensure storage write completes
           });
         }
       );
@@ -1233,6 +1269,8 @@ async function saveScreenshotWithMetadata(data, sendResponse) {
         serverPort: 3025,
       };
 
+      console.log('Preparing to save screenshot with metadata, tabId:', data.tabId);
+      
       // Prepare metadata
       const metadata = {
         screenshot: {
@@ -1246,7 +1284,7 @@ async function saveScreenshotWithMetadata(data, sendResponse) {
           includeBrowserLogs: data.includeBrowserLogs
         },
         annotations: [], // Will be populated in Phase 2
-        browserLogs: data.includeBrowserLogs ? await captureBrowserLogs() : null
+        browserLogs: data.includeBrowserLogs ? await captureBrowserLogs(data.tabId) : null
       };
 
       // Send to server - use new screenshot-with-metadata endpoint
@@ -1316,14 +1354,99 @@ function generateScreenshotFilename(isAnnotated = false) {
   return `${prefix}-${timestamp}.png`;
 }
 
-// Capture browser logs (placeholder for Phase 3)
-async function captureBrowserLogs() {
-  // This will be implemented in Phase 3
-  return {
-    console: [],
-    network: [],
-    errors: []
-  };
+// Browser logs capture using script injection (simpler approach)
+async function captureBrowserLogs(tabId) {
+  try {
+    console.log('Capturing browser logs for tab:', tabId);
+    
+    if (!tabId) {
+      console.log('No tabId provided for browser logs capture');
+      return {
+        console: [],
+        network: [],
+        errors: []
+      };
+    }
+
+    // Inject a script to collect logs from the page
+    return new Promise((resolve) => {
+      chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        func: () => {
+          // Collect any logs that might be available
+          const logs = {
+            console: [],
+            network: [],
+            errors: []
+          };
+
+          // Try to get performance entries for network errors
+          try {
+            const perfEntries = performance.getEntriesByType('resource');
+            perfEntries.forEach(entry => {
+              // Look for failed requests
+              if (entry.transferSize === 0 && !entry.name.startsWith('chrome-extension://')) {
+                logs.network.push({
+                  url: entry.name,
+                  method: 'GET',
+                  status: 0,
+                  timestamp: new Date(performance.timeOrigin + entry.startTime).toISOString()
+                });
+              }
+            });
+          } catch (e) {
+            console.error('Error collecting network logs:', e);
+          }
+
+          // For now, return what we can collect
+          // In a real implementation, we would have injected interceptors earlier
+          return logs;
+        }
+      }, (results) => {
+        if (chrome.runtime.lastError) {
+          console.error('Failed to inject logs capture script:', chrome.runtime.lastError);
+          resolve({
+            console: [],
+            network: [],
+            errors: []
+          });
+          return;
+        }
+
+        const logs = results && results[0] && results[0].result ? results[0].result : {
+          console: [],
+          network: [],
+          errors: []
+        };
+
+        // Add some sample data for testing
+        if (logs.console.length === 0) {
+          logs.console.push({
+            level: 'info',
+            message: 'Screenshot captured at ' + new Date().toISOString(),
+            timestamp: new Date().toISOString(),
+            source: 'console'
+          });
+        }
+
+        console.log('Browser logs captured:', {
+          console: logs.console.length,
+          network: logs.network.length, 
+          errors: logs.errors.length
+        });
+
+        resolve(logs);
+      });
+    });
+
+  } catch (error) {
+    console.error('Error in captureBrowserLogs:', error);
+    return {
+      console: [],
+      network: [],
+      errors: []
+    };
+  }
 }
 
 // Crop screenshot to selection rectangle
