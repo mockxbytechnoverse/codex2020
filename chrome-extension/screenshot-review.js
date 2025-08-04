@@ -152,6 +152,10 @@ function setupEventListeners() {
     // Checkbox
     includeLogsCheckbox.addEventListener('change', handleLogsCheckboxChange);
     
+    // Screenshot zoom functionality
+    screenshotContainer.addEventListener('click', toggleImageZoom);
+    screenshotImage.addEventListener('click', toggleImageZoom);
+    
     // Keyboard shortcuts
     document.addEventListener('keydown', handleKeyboardShortcuts);
     
@@ -196,10 +200,14 @@ function handleLogsCheckboxChange() {
 
 // Handle keyboard shortcuts
 function handleKeyboardShortcuts(event) {
-    // Escape key - close review
+    // Escape key - close review or exit zoom
     if (event.key === 'Escape') {
         event.preventDefault();
-        closeReview();
+        if (screenshotContainer.classList.contains('expanded')) {
+            toggleImageZoom();
+        } else {
+            closeReview();
+        }
     }
     
     // Ctrl/Cmd + S - save
@@ -218,6 +226,12 @@ function handleKeyboardShortcuts(event) {
     if (event.key === 'a' && !event.target.closest('textarea')) {
         event.preventDefault();
         enterAnnotationMode();
+    }
+    
+    // Z key - toggle zoom
+    if (event.key === 'z' && !event.target.closest('textarea')) {
+        event.preventDefault();
+        toggleImageZoom();
     }
 }
 
@@ -298,6 +312,30 @@ function exitAnnotationMode() {
         Annotate
     `;
     annotateBtn.classList.remove('active');
+}
+
+// Toggle image zoom
+function toggleImageZoom(event) {
+    // Prevent event bubbling if clicked on image
+    if (event) {
+        event.stopPropagation();
+    }
+    
+    // Check if we're clicking on a button or control
+    if (event && event.target.closest('.btn, .description-input, .checkbox-label, .close-btn')) {
+        return;
+    }
+    
+    // Toggle expanded class
+    const isExpanded = screenshotContainer.classList.contains('expanded');
+    
+    if (isExpanded) {
+        screenshotContainer.classList.remove('expanded');
+        document.body.style.overflow = 'auto';
+    } else {
+        screenshotContainer.classList.add('expanded');
+        document.body.style.overflow = 'hidden';
+    }
 }
 
 // Save screenshot

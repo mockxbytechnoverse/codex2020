@@ -124,9 +124,9 @@ body {
     flex: 1;
     display: grid;
     grid-template-rows: 1fr auto auto;
-    gap: 24px;
-    padding: 24px;
-    max-width: 1200px;
+    gap: 16px;
+    padding: 20px;
+    max-width: 1400px;
     margin: 0 auto;
     width: 100%;
     min-height: 100vh;
@@ -145,17 +145,97 @@ body {
     border-radius: var(--border-radius-lg);
     overflow: hidden;
     padding: 20px;
+    cursor: zoom-in;
+    transition: all 0.3s ease;
+}
+
+.screenshot-container:hover {
+    border-color: var(--vizual-cyan);
+    background: var(--surface-elevated);
 }
 
 .screenshot-image {
-    max-width: 100%;
-    max-height: calc(100vh - 350px);
+    max-width: calc(100% - 40px);
+    max-height: calc(100vh - 300px);
     width: auto;
     height: auto;
     border-radius: var(--border-radius);
     box-shadow: var(--shadow-xl);
     object-fit: contain;
     display: block;
+    transition: transform 0.3s ease;
+    cursor: zoom-in;
+}
+
+/* Allow larger images when there's space */
+@media (min-height: 800px) {
+    .screenshot-image {
+        max-height: calc(100vh - 250px);
+    }
+}
+
+@media (min-height: 1000px) {
+    .screenshot-image {
+        max-height: calc(100vh - 200px);
+    }
+}
+
+/* Hover effect for small images */
+.screenshot-image:hover {
+    transform: scale(1.02);
+}
+
+/* Zoom indicator */
+.screenshot-container::after {
+    content: '🔍 Click to zoom';
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.screenshot-container:hover::after {
+    opacity: 1;
+}
+
+.screenshot-container.expanded::after {
+    content: '🔍 Click to close (Esc)';
+}
+
+/* Expanded/zoomed state */
+.screenshot-container.expanded {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 999;
+    background: rgba(0, 0, 0, 0.9);
+    border: none;
+    border-radius: 0;
+    padding: 40px;
+    cursor: zoom-out;
+}
+
+.screenshot-container.expanded .screenshot-image {
+    max-width: calc(100vw - 80px);
+    max-height: calc(100vh - 80px);
+    cursor: zoom-out;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+}
+
+/* Dark theme adjustments for expanded view */
+@media (prefers-color-scheme: dark) {
+    .screenshot-container.expanded {
+        background: rgba(0, 0, 0, 0.95);
+    }
 }
 
 .loading-spinner {
@@ -183,11 +263,11 @@ body {
 /* Description Section - Compact design */
 .description-section {
     width: 100%;
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
 .description-label {
@@ -284,9 +364,9 @@ body {
     justify-content: center;
     flex-wrap: wrap;
     width: 100%;
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
-    padding-bottom: 24px;
+    padding-bottom: 20px;
 }
 
 .btn {
