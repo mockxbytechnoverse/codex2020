@@ -8,13 +8,16 @@
     --vizual-accent: #ff3b30;
     --selection-opacity: 0.3;
     
-    /* UI Colors */
+    /* Light Theme (Default) */
     --background: #ffffff;
     --surface: #f8f9fa;
+    --surface-elevated: #ffffff;
     --border: #e5e7eb;
+    --border-subtle: #f3f4f6;
     --text-primary: #111827;
     --text-secondary: #6b7280;
     --text-muted: #9ca3af;
+    --text-on-gradient: #ffffff;
     
     /* Component Colors */
     --primary-bg: linear-gradient(135deg, var(--vizual-cyan), var(--vizual-purple));
@@ -28,10 +31,36 @@
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     
     /* Spacing */
     --border-radius: 8px;
     --border-radius-lg: 12px;
+    --border-radius-xl: 16px;
+}
+
+/* Dark Theme */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #0a0a0b;
+        --surface: #18181b;
+        --surface-elevated: #27272a;
+        --border: #3f3f46;
+        --border-subtle: #27272a;
+        --text-primary: #fafafa;
+        --text-secondary: #a1a1aa;
+        --text-muted: #71717a;
+        
+        --secondary-bg: #27272a;
+        --secondary-hover: #3f3f46;
+        --tertiary-hover: #18181b;
+        
+        /* Adjust shadows for dark theme */
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+        --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+    }
 }
 
 * {
@@ -44,30 +73,32 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     background: var(--background);
     color: var(--text-primary);
-    overflow: hidden;
-    height: 100vh;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
-/* Main Container */
+/* Main Container - Fixed the layout issues */
 .review-container {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    min-height: 100vh;
     background: var(--background);
+    position: relative;
 }
 
-/* Header */
+/* Header - Improved positioning */
 .review-header {
-    position: fixed;
-    top: 20px;
-    right: 20px;
+    position: absolute;
+    top: 16px;
+    right: 16px;
     z-index: 100;
 }
 
 .close-btn {
-    width: 44px;
-    height: 44px;
-    background: rgba(255, 255, 255, 0.9);
+    width: 40px;
+    height: 40px;
+    background: var(--surface-elevated);
     backdrop-filter: blur(10px);
     border: 1px solid var(--border);
     border-radius: 50%;
@@ -81,56 +112,57 @@ body {
 }
 
 .close-btn:hover {
-    background: rgba(255, 255, 255, 1);
+    background: var(--surface-elevated);
     color: var(--text-primary);
     transform: scale(1.05);
     box-shadow: var(--shadow-lg);
+    border-color: var(--vizual-cyan);
 }
 
-/* Content Area */
+/* Content Area - Improved layout */
 .review-content {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 20px 20px;
-    gap: 32px;
+    display: grid;
+    grid-template-rows: 1fr auto auto;
+    gap: 24px;
+    padding: 24px;
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
+    min-height: 100vh;
 }
 
-/* Screenshot Container */
+/* Screenshot Container - Better responsive sizing */
 .screenshot-container {
     position: relative;
-    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
-    min-height: 400px;
+    min-height: 300px;
     background: var(--surface);
     border: 2px dashed var(--border);
     border-radius: var(--border-radius-lg);
     overflow: hidden;
+    padding: 20px;
 }
 
 .screenshot-image {
     max-width: 100%;
-    max-height: 100%;
+    max-height: calc(100vh - 350px);
     width: auto;
     height: auto;
     border-radius: var(--border-radius);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-xl);
     object-fit: contain;
+    display: block;
 }
 
 .loading-spinner {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     color: var(--text-secondary);
 }
 
@@ -148,40 +180,44 @@ body {
     100% { transform: rotate(360deg); }
 }
 
-/* Description Section */
+/* Description Section - Compact design */
 .description-section {
     width: 100%;
-    max-width: 600px;
+    max-width: 800px;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
 }
 
 .description-label {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-primary);
-    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .description-input {
     width: 100%;
-    padding: 12px 16px;
+    padding: 10px 14px;
     border: 1px solid var(--border);
     border-radius: var(--border-radius);
     font-size: 14px;
     font-family: inherit;
-    background: var(--background);
+    background: var(--surface);
     color: var(--text-primary);
     resize: vertical;
-    min-height: 80px;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    min-height: 60px;
+    max-height: 120px;
+    transition: all 0.2s ease;
 }
 
 .description-input:focus {
     outline: none;
     border-color: var(--vizual-cyan);
     box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.1);
+    background: var(--surface-elevated);
 }
 
 .description-input::placeholder {
@@ -190,17 +226,18 @@ body {
 
 /* Checkbox Section */
 .checkbox-section {
-    margin-top: 8px;
+    margin-top: 4px;
 }
 
 .checkbox-label {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     cursor: pointer;
     font-size: 14px;
     color: var(--text-secondary);
     user-select: none;
+    padding: 4px 0;
 }
 
 .checkbox {
@@ -215,6 +252,7 @@ body {
     position: relative;
     transition: all 0.2s ease;
     flex-shrink: 0;
+    background: var(--surface);
 }
 
 .checkbox:checked + .checkbox-custom {
@@ -238,22 +276,24 @@ body {
     border-color: var(--vizual-cyan);
 }
 
-/* Action Buttons */
+/* Action Buttons - Improved layout */
 .action-buttons {
     display: flex;
-    gap: 12px;
+    gap: 10px;
     align-items: center;
     justify-content: center;
     flex-wrap: wrap;
     width: 100%;
-    max-width: 600px;
+    max-width: 800px;
+    margin: 0 auto;
+    padding-bottom: 24px;
 }
 
 .btn {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 24px;
+    gap: 6px;
+    padding: 10px 20px;
     border: none;
     border-radius: var(--border-radius);
     font-size: 14px;
@@ -264,7 +304,7 @@ body {
     text-decoration: none;
     white-space: nowrap;
     user-select: none;
-    min-height: 44px;
+    min-height: 40px;
 }
 
 .btn:disabled {
@@ -276,8 +316,9 @@ body {
 /* Primary Button (Save) */
 .btn-primary {
     background: var(--primary-bg);
-    color: white;
+    color: var(--text-on-gradient);
     box-shadow: var(--shadow-sm);
+    padding: 10px 28px;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -323,17 +364,24 @@ body {
     flex-shrink: 0;
 }
 
+/* Active state for toggle buttons */
+.btn.active {
+    background: var(--vizual-cyan);
+    color: white;
+    border-color: var(--vizual-cyan);
+}
+
 /* Notifications */
 .notification {
     position: fixed;
     top: 20px;
     left: 50%;
     transform: translateX(-50%) translateY(-100px);
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--surface-elevated);
     backdrop-filter: blur(10px);
     border: 1px solid var(--border);
     border-radius: var(--border-radius);
-    padding: 16px 24px;
+    padding: 14px 20px;
     box-shadow: var(--shadow-lg);
     z-index: 1000;
     opacity: 0;
@@ -348,19 +396,27 @@ body {
 }
 
 .notification.error {
-    background: rgba(254, 242, 242, 0.95);
-    border-color: #fca5a5;
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
 }
 
 .notification.success {
-    background: rgba(240, 253, 244, 0.95);
-    border-color: #86efac;
+    background: rgba(34, 211, 238, 0.1);
+    border-color: rgba(34, 211, 238, 0.3);
+    color: var(--vizual-cyan);
+}
+
+.notification.info {
+    background: rgba(192, 132, 252, 0.1);
+    border-color: rgba(192, 132, 252, 0.3);
+    color: var(--vizual-purple);
 }
 
 .notification-content {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
 .notification-icon {
@@ -371,35 +427,52 @@ body {
 .notification-message {
     font-size: 14px;
     font-weight: 500;
-    color: var(--text-primary);
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
     .review-content {
         padding: 20px 16px;
-        gap: 24px;
+        gap: 20px;
+        grid-template-rows: minmax(200px, 1fr) auto auto;
+    }
+    
+    .screenshot-container {
+        min-height: 200px;
+        padding: 16px;
+    }
+    
+    .screenshot-image {
+        max-height: calc(100vh - 400px);
     }
     
     .action-buttons {
         gap: 8px;
+        padding-bottom: 20px;
     }
     
     .btn {
-        padding: 10px 16px;
+        padding: 8px 16px;
         font-size: 13px;
+        min-height: 36px;
+    }
+    
+    .description-input {
+        min-height: 50px;
+        max-height: 100px;
     }
     
     .description-section {
         max-width: 100%;
     }
-    
-    .screenshot-container {
-        min-height: 300px;
-    }
 }
 
 @media (max-width: 480px) {
+    .review-content {
+        padding: 16px 12px;
+        gap: 16px;
+    }
+    
     .action-buttons {
         flex-direction: column;
         width: 100%;
@@ -410,9 +483,13 @@ body {
         justify-content: center;
     }
     
-    .review-content {
-        padding: 16px 12px;
-        gap: 20px;
+    .screenshot-image {
+        max-height: calc(100vh - 450px);
+    }
+    
+    .close-btn {
+        width: 36px;
+        height: 36px;
     }
 }
 
@@ -439,9 +516,31 @@ body {
 
 .screenshot-container.loaded .screenshot-image {
     opacity: 1;
-    transition: opacity 0.3s ease;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { 
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to { 
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .screenshot-container.loaded .loading-spinner {
     display: none;
+}
+
+/* Ensure content is always visible */
+html {
+    overflow-y: auto;
+}
+
+/* Prevent content from being cut off */
+.review-container {
+    min-height: 100vh;
+    overflow: visible;
 }

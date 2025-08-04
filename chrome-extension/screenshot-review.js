@@ -27,6 +27,9 @@ const notificationMessage = document.getElementById('notification-message');
 // Initialize the review interface
 document.addEventListener('DOMContentLoaded', async () => {
     try {
+        // Add loading class initially
+        screenshotContainer.classList.add('loading');
+        
         // Get screenshot data from URL parameters or storage
         await loadScreenshotData();
         
@@ -102,12 +105,19 @@ async function loadScreenshotData() {
             
             // Handle image load
             screenshotImage.onload = () => {
+                // Hide loading spinner
+                loadingSpinner.style.display = 'none';
+                // Show the image
+                screenshotImage.style.display = 'block';
+                // Add loaded class for animation
                 screenshotContainer.classList.add('loaded');
                 screenshotContainer.classList.remove('loading');
             };
             
             screenshotImage.onerror = () => {
-                throw new Error('Failed to load screenshot image');
+                console.error('Failed to load screenshot image');
+                showNotification('error', 'Failed to load screenshot image');
+                setTimeout(() => closeReview(), 2000);
             };
             
         } else {
@@ -381,6 +391,9 @@ function showNotification(type, message) {
             notificationIcon.textContent = '⚠';
             break;
         case 'info':
+            notification.classList.add('info');
+            notificationIcon.textContent = 'ℹ';
+            break;
         default:
             notificationIcon.textContent = 'ℹ';
             break;
