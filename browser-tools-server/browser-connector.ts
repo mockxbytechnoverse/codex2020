@@ -20,6 +20,7 @@ import {
 } from "./lighthouse/index.js";
 import * as net from "net";
 import { runBestPracticesAudit } from "./lighthouse/best-practices.js";
+import * as webmDurationFixModule from "webm-duration-fix";
 
 /**
  * Converts a file path to the appropriate format for the current platform
@@ -136,6 +137,7 @@ function getDefaultDownloadsFolder(): string {
   const homeDir = os.homedir();
   // Downloads folder is typically the same path on Windows, macOS, and Linux
   const downloadsPath = path.join(homeDir, "Downloads", "mcp-screenshots");
+
   return downloadsPath;
 }
 
@@ -727,9 +729,26 @@ app.post("/recording-data", async (req, res) => {
     // Create directory if it doesn't exist
     fs.mkdirSync(recordingsPath, { recursive: true });
     
-    // Remove data URI prefix and save the file
+    // Remove data URI prefix and convert to buffer
     const base64Data = data.replace(/^data:video\/webm;base64,/, "");
-    fs.writeFileSync(fullPath, base64Data, "base64");
+    const webmBuffer = Buffer.from(base64Data, "base64");
+    
+    let finalWebmBuffer = webmBuffer;
+    
+    // Fix the WebM duration header using the calculated duration
+    try {
+      console.log(`Fixing WebM duration header: ${duration}ms (${duration / 1000}s)`);
+      finalWebmBuffer = (webmDurationFixModule as any).default(webmBuffer, duration / 1000); // Convert to seconds
+      console.log(`Successfully fixed WebM duration header. Original size: ${webmBuffer.length}, Fixed size: ${finalWebmBuffer.length}`);
+    } catch (error) {
+      console.error("Failed to fix WebM duration header:", error);
+      console.log("Saving original WebM file without duration fix");
+      // Continue with original buffer if duration fix fails
+      finalWebmBuffer = webmBuffer;
+    }
+    
+    // Save the WebM file (with or without duration fix)
+    fs.writeFileSync(fullPath, finalWebmBuffer);
     
     // Save metadata
     const metadata = {
@@ -737,7 +756,10 @@ app.post("/recording-data", async (req, res) => {
       description: description || "",
       duration: duration,
       timestamp: timestamp,
-      size: fs.statSync(fullPath).size
+      size: fs.statSync(fullPath).size,
+      durationHeaderFixed: finalWebmBuffer !== webmBuffer, // Track if duration was fixed
+      originalSize: webmBuffer.length,
+      finalSize: finalWebmBuffer.length
     };
     
     const metadataPath = fullPath.replace('.webm', '.json');
