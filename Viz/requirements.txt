@@ -1,0 +1,4 @@
+watchdog
+google-generativeai
+python-dotenv
+
