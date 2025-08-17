@@ -971,7 +971,13 @@ function wireAgentHandlers() {
 
     async function getActiveTabId() {
         return new Promise((resolve) => {
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => resolve(tabs && tabs[0] ? tabs[0].id : null));
+            try {
+                chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB_ID' }, (resp) => {
+                    resolve(resp && resp.tabId ? resp.tabId : null);
+                });
+            } catch {
+                resolve(null);
+            }
         });
     }
 
