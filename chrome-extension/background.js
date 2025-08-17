@@ -52,6 +52,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
+  // Open Viz agent popup window (from overlay/content script)
+  if (message.type === "OPEN_VIZ_POPUP") {
+    const url = chrome.runtime.getURL('popup-viz.html');
+    chrome.windows.create({
+      url,
+      type: 'popup',
+      width: 380,
+      height: 560,
+      focused: true
+    }, () => {
+      if (sendResponse) sendResponse({ success: true });
+    });
+    return true;
+  }
+  
   if (message.type === "GET_CURRENT_URL" && message.tabId) {
     getCurrentTabUrl(message.tabId)
       .then((url) => {

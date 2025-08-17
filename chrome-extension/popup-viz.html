@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Viz Runner</title>
+    <style>
+      body { font-family: -apple-system, system-ui, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, sans-serif; margin: 12px; width: 320px; }
+      .row { margin-bottom: 8px; }
+      label { display: block; font-size: 12px; color: #444; margin-bottom: 4px; }
+      input[type="text"], textarea { width: 100%; box-sizing: border-box; font-size: 12px; padding: 6px; }
+      textarea { height: 64px; }
+      button { padding: 6px 10px; font-size: 12px; }
+      .status { height: 96px; overflow: auto; background: #fafafa; border: 1px solid #eee; padding: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 11px; white-space: pre-wrap; }
+      .inline { display: inline-block; margin-right: 6px; }
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <label>Workdir</label>
+      <input id="workdir" type="text" placeholder="/absolute/path/to/your/project">
+    </div>
+    <div class="row">
+      <label>Description (optional)</label>
+      <textarea id="description" placeholder="Briefly describe the change"></textarea>
+    </div>
+    <div class="row">
+      <label>Runner</label>
+      <select id="runner">
+        <option value="claude" selected>claude</option>
+        <option value="codex">codex</option>
+      </select>
+    </div>
+    <div class="row">
+      <button id="start-record">Record and Run</button>
+    </div>
+    <div class="row">
+      <label>Status</label>
+      <div id="status" class="status"></div>
+    </div>
+    <script src="popup-viz.js"></script>
+  </body>
+  </html>
+
+

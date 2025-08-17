@@ -10,7 +10,7 @@ import path from "path";
 import { IncomingMessage } from "http";
 import { Socket } from "net";
 import os from "os";
-import { exec } from "child_process";
+import { exec, spawn } from "child_process";
 import {
   runPerformanceAudit,
   runAccessibilityAudit,
@@ -209,6 +209,260 @@ interface AnalysisRequest {
 }
 
 const analysisQueue = new Map<string, AnalysisRequest>();
+
+// =======================
+// Viz Phase 1 Orchestrator
+// =======================
+
+interface VizSettings {
+  workdir: string;
+  runner: "claude" | "codex";
+  codexModel: string;
+  clipSeconds?: number;
+  downscale?: number;
+  crf: number;
+  saveArtifacts: boolean;
+}
+
+interface VizJob {
+  id: string;
+  conversationId?: string;
+  recordingPath: string;
+  description?: string;
+  runner: "claude" | "codex";
+  status:
+    | "pending"
+    | "analyzing"
+    | "analysisComplete"
+    | "runnerStarting"
+    | "running"
+    | "completed"
+    | "failed";
+  createdAt: number;
+  updatedAt: number;
+  error?: string;
+  artifacts?: {
+    fullPromptPath?: string;
+    commandLogPath?: string;
+  };
+  logs?: string[];
+}
+
+const vizJobs = new Map<string, VizJob>();
+
+// Default workdir (override via /viz/settings)
+const DEFAULT_WORKDIR = process.env.VIZ_WORKDIR || path.join(os.homedir(), "Desktop", "OpenStudyAI", "Mock-X-WebApp");
+
+// Separate Viz config (do not mutate currentSettings shape)
+let vizWorkdir: string = DEFAULT_WORKDIR;
+let vizConfig: VizSettings = {
+  workdir: DEFAULT_WORKDIR,
+  runner: "claude",
+  codexModel: "gpt-5-nano",
+  clipSeconds: undefined,
+  downscale: undefined,
+  crf: 28,
+  saveArtifacts: false,
+};
+
+// Broadcast helper set by BrowserConnector when a WS client connects
+let vizStatusBroadcast: ((event: any) => void) | null = null;
+
+function broadcastViz(event: any) {
+  if (vizStatusBroadcast) {
+    try {
+      vizStatusBroadcast(event);
+    } catch (e) {
+      console.error("Failed to broadcast viz-status:", e);
+    }
+  }
+}
+
+function ensureDir(p: string) {
+  try {
+    fs.mkdirSync(p, { recursive: true });
+  } catch (e) {
+    // ignore
+  }
+}
+
+function appendToPath(env: NodeJS.ProcessEnv, addPaths: string[]) {
+  const cur = env.PATH || process.env.PATH || "";
+  const parts = new Set(cur.split(":").filter(Boolean));
+  for (const ap of addPaths) {
+    if (!parts.has(ap)) parts.add(ap);
+  }
+  env.PATH = Array.from(parts).join(":");
+}
+
+function resolveRunnerBinary(preferred: string, fallbacks: string[]): string {
+  for (const pth of fallbacks) {
+    try {
+      if (fs.existsSync(pth)) return pth;
+    } catch {}
+  }
+  return preferred;
+}
+
+function repoRootDir(): string {
+  // dist/ is under browser-tools-server/dist → go up two levels to repo root
+  return path.resolve(__dirname, "..", "..");
+}
+
+function writeArtifactsIfEnabled(fullPrompt: string, runnerArgs: string[], workdir: string, save: boolean) {
+  if (!save) return { fullPromptPath: undefined, commandLogPath: undefined };
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const vizDir = path.join(workdir, ".viz");
+    ensureDir(vizDir);
+    const promptPath = path.join(vizDir, `full_prompt_${timestamp}.txt`);
+    fs.writeFileSync(promptPath, fullPrompt, "utf-8");
+    const cmdPath = path.join(vizDir, `runner_command_${timestamp}.txt`);
+    const log = [
+      "=".repeat(80),
+      `Command Log - ${new Date().toISOString()}`,
+      "=".repeat(80),
+      "",
+      `WORKDIR: ${workdir}`,
+      "COMMAND ARGS:",
+      runnerArgs.join(" "),
+      "",
+      "FULL PROMPT:",
+      fullPrompt,
+      "",
+    ].join("\n");
+    fs.writeFileSync(cmdPath, log, "utf-8");
+    return { fullPromptPath: promptPath, commandLogPath: cmdPath };
+  } catch (e) {
+    console.warn("Failed to write Viz artifacts:", e);
+    return { fullPromptPath: undefined, commandLogPath: undefined };
+  }
+}
+
+async function runVizJob(job: VizJob): Promise<void> {
+  const settings: VizSettings = vizConfig;
+  const workdir: string = vizWorkdir || DEFAULT_WORKDIR;
+  const analysisId = job.id;
+
+  function updateStatus(partial: Partial<VizJob> & { status?: VizJob["status"]; message?: string; phase?: string }) {
+    const existing = vizJobs.get(analysisId);
+    const merged = { ...existing, ...partial, updatedAt: Date.now() } as VizJob & { message?: string; phase?: string };
+    vizJobs.set(analysisId, merged);
+    const { conversationId } = merged;
+    const event: any = { type: "viz-status", analysisId, conversationId, phase: partial.status || merged.status };
+    if ((partial as any).message) event.message = (partial as any).message;
+    broadcastViz(event);
+  }
+
+  try {
+    updateStatus({ status: "analyzing", message: "Starting Gemini analysis" });
+
+    // Spawn Python CLI
+    const pyArgs = ["-m", "Viz.cli_analyze", "--video-path", job.recordingPath];
+    if (typeof settings.clipSeconds === "number") pyArgs.push("--clip-seconds", String(settings.clipSeconds));
+    if (typeof settings.downscale === "number") pyArgs.push("--downscale", String(settings.downscale));
+    if (typeof settings.crf === "number") pyArgs.push("--crf", String(settings.crf));
+
+    const env = { ...process.env };
+    // Ensure common PATHs for python/ffmpeg/claude
+    appendToPath(env, ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"]);
+
+    const pythonCmd = process.platform === "win32" ? "python" : "python3";
+    const proc = spawn(pythonCmd, pyArgs, { cwd: repoRootDir(), env });
+
+    let out = "";
+    let err = "";
+    proc.stdout.on("data", (d) => (out += d.toString()));
+    proc.stderr.on("data", (d) => (err += d.toString()));
+
+    await new Promise<void>((resolve, reject) => {
+      proc.on("error", reject);
+      proc.on("close", (code) => {
+        if (code !== 0) {
+          return reject(new Error(err || `viz cli exited with code ${code}`));
+        }
+        try {
+          JSON.parse(out);
+          resolve();
+        } catch (e) {
+          reject(new Error(`Invalid JSON from Viz CLI: ${String(e)}\n${out}`));
+        }
+      });
+    });
+
+    const analysis = JSON.parse(out);
+    const systemPrompt =
+      "You are an expert web developer assistant. A user has provided a request for changes to a webapp. Please analyze the request and implement the necessary changes to the codebase. Focus on understanding the user's intent and making precise, well-structured modifications to the code.";
+    const fullPrompt = `${systemPrompt}\n\n${analysis.analysis || ""}`;
+
+    updateStatus({ status: "analysisComplete", message: "Gemini analysis complete" });
+
+    // Runner selection
+    const runner: "claude" | "codex" = (job.runner || settings.runner || "claude") as any;
+    updateStatus({ status: "runnerStarting", message: `Starting ${runner} runner` });
+
+    const runnerEnv = { ...process.env };
+    appendToPath(runnerEnv, ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"]);
+
+    let cmd = "";
+    let args: string[] = [];
+    if (runner === "codex") {
+      const codexPath = resolveRunnerBinary("codex", [
+        "/opt/homebrew/bin/codex",
+        "/usr/local/bin/codex",
+        path.join(os.homedir(), ".local", "bin", "codex"),
+      ]);
+      cmd = codexPath;
+      const model = settings.codexModel || "gpt-5-nano";
+      args = ["--model", model, "--full-auto"];
+    } else {
+      const claudePath = resolveRunnerBinary("claude", [
+        "/opt/homebrew/bin/claude",
+        "/usr/local/bin/claude",
+      ]);
+      cmd = claudePath;
+      args = ["--dangerously-skip-permissions"];
+    }
+
+    // Save artifacts if enabled
+    const artifacts = writeArtifactsIfEnabled(fullPrompt, [cmd, ...args], workdir, !!settings.saveArtifacts);
+    const child = spawn(cmd, args, { cwd: workdir, env: runnerEnv });
+    job.logs = job.logs || [];
+    child.stdout.on("data", (d) => {
+      const s = d.toString();
+      job.logs!.push(s);
+      broadcastViz({ type: "viz-status", analysisId, conversationId: job.conversationId, phase: "runnerOutput", message: s });
+    });
+    child.stderr.on("data", (d) => {
+      const s = d.toString();
+      job.logs!.push(s);
+      broadcastViz({ type: "viz-status", analysisId, conversationId: job.conversationId, phase: "runnerOutput", message: s });
+    });
+
+    // Write prompt to stdin and close
+    try {
+      child.stdin.write(fullPrompt);
+      child.stdin.end();
+    } catch (e) {
+      console.warn("Failed to write prompt to runner stdin:", e);
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      child.on("error", reject);
+      child.on("close", (code) => {
+        if (code !== 0) return reject(new Error(`${runner} exited with code ${code}`));
+        resolve();
+      });
+    });
+
+    updateStatus({ status: "completed", message: `${runner} run completed`, artifacts });
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : String(error);
+    const existing = vizJobs.get(job.id) as VizJob;
+    vizJobs.set(job.id, { ...existing, status: "failed", error: msg, updatedAt: Date.now() });
+    broadcastViz({ type: "viz-status", analysisId: job.id, conversationId: job.conversationId, phase: "failed", message: msg });
+  }
+}
 
 // Add new state for tracking screenshot requests
 interface ScreenshotCallback {
@@ -579,6 +833,67 @@ function clearAllLogs() {
 app.post("/wipelogs", (req, res) => {
   clearAllLogs();
   res.json({ status: "ok", message: "All logs cleared successfully" });
+});
+
+// ===== Viz Phase 1 endpoints =====
+app.post("/viz/settings", (req: express.Request, res: express.Response) => {
+  try {
+    const { workdir, viz } = req.body || {};
+    if (typeof workdir === "string" && workdir.trim()) {
+      vizWorkdir = workdir;
+    }
+    if (viz && typeof viz === "object") {
+      vizConfig = { ...vizConfig, ...viz } as VizSettings;
+      // Keep internal workdir in sync with top-level
+      if (vizConfig.workdir && vizConfig.workdir !== vizWorkdir) {
+        vizWorkdir = vizConfig.workdir;
+      } else {
+        vizConfig.workdir = vizWorkdir;
+      }
+    }
+    res.json({ status: "ok", settings: { workdir: vizWorkdir, viz: vizConfig } });
+  } catch (e: any) {
+    res.status(500).json({ status: "error", message: e?.message || String(e) });
+  }
+});
+
+app.post("/viz/analyze-and-run", async (req: any, res: any) => {
+  try {
+    const { recordingPath, description, conversationId, runner, immediate = true } = req.body || {};
+    if (!recordingPath || typeof recordingPath !== "string" || !fs.existsSync(recordingPath)) {
+      return res.status(400).json({ status: "error", message: "Invalid or missing recordingPath" });
+    }
+    const id = `analysis_${Date.now()}`;
+    const job: VizJob = {
+      id,
+      conversationId,
+      recordingPath,
+      description,
+      runner: (runner === "codex" ? "codex" : "claude"),
+      status: "pending",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      logs: [],
+    };
+    vizJobs.set(id, job);
+    broadcastViz({ type: "viz-status", analysisId: id, conversationId, phase: "pending" });
+
+    if (immediate) {
+      // Fire and forget
+      runVizJob(job).catch(() => {});
+    }
+
+    res.json({ status: "ok", analysisId: id });
+  } catch (e: any) {
+    res.status(500).json({ status: "error", message: e?.message || String(e) });
+  }
+});
+
+app.get("/viz/analysis-status/:analysisId", (req: any, res: any) => {
+  const { analysisId } = req.params;
+  const job = vizJobs.get(analysisId);
+  if (!job) return res.status(404).json({ status: "error", message: "Analysis not found" });
+  res.json({ status: "ok", analysis: job });
 });
 
 // Add recording endpoints
@@ -1065,6 +1380,16 @@ export class BrowserConnector {
     this.wss.on("connection", (ws: WebSocket) => {
       console.log("Chrome extension connected via WebSocket");
       this.activeConnection = ws;
+      // Wire up viz-status broadcasting to the active WebSocket connection
+      vizStatusBroadcast = (event: any) => {
+        try {
+          if (this.activeConnection && this.activeConnection.readyState === WebSocket.OPEN) {
+            this.activeConnection.send(JSON.stringify(event));
+          }
+        } catch (e) {
+          console.error("Failed to send viz-status over WebSocket:", e);
+        }
+      };
 
       ws.on("message", (message: string | Buffer | ArrayBuffer | Buffer[]) => {
         try {

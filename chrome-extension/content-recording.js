@@ -412,6 +412,17 @@ async function saveRecording(blob) {
                         message: `Recording saved to ${result.filename}`
                     }
                 });
+
+                try {
+                    // Notify popup/background that recording was saved
+                    chrome.runtime.sendMessage({
+                        type: 'POPUP_RECORDING_SAVED',
+                        path: result.path,
+                        filename: result.filename
+                    });
+                } catch (e) {
+                    // ignore
+                }
             } else {
                 throw new Error('Failed to save recording');
             }

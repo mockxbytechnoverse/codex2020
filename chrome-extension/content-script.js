@@ -129,8 +129,14 @@ function createOverlayHTML() {
                     </svg>
                 </div>
                 <div class="header-actions">
+                    <button class="glass-icon-btn" id="overlay-back-btn" title="Back" aria-label="Back" style="display:none;">
+                        <span class="icon">⟵</span>
+                    </button>
                     <button class="glass-icon-btn" id="overlay-close-btn" title="Close" aria-label="Close overlay">
                         <span class="icon">✕</span>
+                    </button>
+                    <button class="glass-icon-btn" id="overlay-open-agent-btn" title="Open Viz Agent" aria-label="Open Viz Agent">
+                        <span class="icon">⚙︎</span>
                     </button>
                 </div>
             </div>
@@ -184,6 +190,48 @@ function createOverlayHTML() {
                             <p class="card-description">Capture full screen</p>
                         </div>
                     </div>
+                    
+                    <!-- Run Agent Card -->
+                    <div class="glass-action-card recording-card" id="overlay-run-agent-card" role="button" tabindex="0" aria-label="Open Viz agent to run coding changes">
+                        <div class="card-icon">
+                            <span class="icon-large">🤖</span>
+                            <div class="icon-glow"></div>
+                        </div>
+                        <div class="card-content">
+                            <h3 class="card-title">Run Agent</h3>
+                            <p class="card-description">Open agent to analyze and apply changes</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Viz Agent View (hidden by default) -->
+            <div class="viz-agent-view" id="viz-agent-view">
+                <div class="agent-header-row">
+                    <h3 class="agent-title">Viz Agent</h3>
+                    <button class="glass-icon-btn" id="viz-agent-back-btn" title="Back" aria-label="Back to main overlay">⟵</button>
+                </div>
+                <div class="agent-row">
+                    <label class="agent-label">Workdir</label>
+                    <input type="text" id="viz-workdir" class="agent-input" placeholder="/absolute/path/to/your/project" />
+                </div>
+                <div class="agent-row">
+                    <label class="agent-label">Description (optional)</label>
+                    <textarea id="viz-description" class="agent-textarea" placeholder="Briefly describe the change"></textarea>
+                </div>
+                <div class="agent-row">
+                    <label class="agent-label">Runner</label>
+                    <select id="viz-runner" class="agent-select">
+                        <option value="claude" selected>claude</option>
+                        <option value="codex">codex</option>
+                    </select>
+                </div>
+                <div class="agent-row">
+                    <button id="viz-record-run-btn" class="agent-primary-btn">Record and Run</button>
+                </div>
+                <div class="agent-row">
+                    <label class="agent-label">Status</label>
+                    <div id="viz-status" class="agent-status"></div>
                 </div>
             </div>
 
@@ -256,8 +304,8 @@ function injectOverlayCSS() {
                 inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
         }
         
-        /* Reset all child elements */
-        #vizualai-floating-overlay * {
+        /* Reset most child elements, but DO NOT reset native form controls */
+        #vizualai-floating-overlay :not(input):not(textarea):not(select):not(button) {
             all: unset !important;
             box-sizing: border-box !important;
             font-family: inherit !important;
@@ -759,7 +807,29 @@ function injectOverlayCSS() {
         }
     `;
     
-    styleElement.textContent = isolatedCSS;
+    styleElement.textContent = isolatedCSS + `
+    /* Viz agent view styles */
+    #vizualai-floating-overlay .viz-agent-view { display: none !important; }
+    #vizualai-floating-overlay.agent-mode .viz-agent-view { display: block !important; }
+    #vizualai-floating-overlay.agent-mode .glass-content { display: none !important; }
+    #vizualai-floating-overlay .header-actions { display: flex; gap: 8px; align-items: center; }
+    #vizualai-floating-overlay .glass-icon-btn { cursor: pointer; padding: 6px 8px; border-radius: 10px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #0f172a; }
+    #vizualai-floating-overlay .glass-icon-btn:hover { background: rgba(255,255,255,0.14); }
+    #vizualai-floating-overlay.agent-mode #overlay-open-agent-btn { display: none; }
+    #vizualai-floating-overlay.agent-mode #overlay-back-btn { display: inline-flex !important; }
+    #vizualai-floating-overlay .viz-agent-view { padding: 12px; backdrop-filter: blur(8px); background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; }
+    #vizualai-floating-overlay .agent-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    #vizualai-floating-overlay .agent-title { margin: 0; font-size: 16px; color: #e5e7eb; }
+    #vizualai-floating-overlay .agent-row { margin: 8px 0; }
+    #vizualai-floating-overlay .agent-label { display:block; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; }
+    #vizualai-floating-overlay .agent-input,
+    #vizualai-floating-overlay .agent-textarea,
+    #vizualai-floating-overlay .agent-select { width: 100%; box-sizing: border-box; background: rgba(2,6,23,0.5); color: #e5e7eb; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 8px; font-size: 12px; }
+    #vizualai-floating-overlay .agent-textarea { min-height: 64px; resize: vertical; }
+    #vizualai-floating-overlay .agent-primary-btn { background: linear-gradient(90deg,#22D3EE,#C084FC); color: #0b1020; border: none; padding: 8px 12px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+    #vizualai-floating-overlay .agent-primary-btn:hover { filter: brightness(1.05); }
+    #vizualai-floating-overlay .agent-status { min-height: 90px; max-height: 140px; overflow: auto; background: rgba(2,6,23,0.4); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 11px; color: #cbd5e1; white-space: pre-wrap; }
+    `;
     document.head.appendChild(styleElement);
 }
 
@@ -768,6 +838,25 @@ function setupOverlayEventListeners() {
     const closeBtn = overlayContainer.querySelector('#overlay-close-btn');
     if (closeBtn) {
         closeBtn.addEventListener('click', hideOverlay);
+    }
+
+    const openAgentBtn = overlayContainer.querySelector('#overlay-open-agent-btn');
+    if (openAgentBtn) {
+        openAgentBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); switchToAgentView(); });
+    }
+
+    const navBackBtn = overlayContainer.querySelector('#overlay-back-btn');
+    if (navBackBtn) {
+        navBackBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); switchToMainView(); });
+    }
+    
+    const runAgentCard = overlayContainer.querySelector('#overlay-run-agent-card');
+    if (runAgentCard) {
+        runAgentCard.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            switchToAgentView();
+        }, { passive: true });
     }
     
     // Screenshot functionality
@@ -828,6 +917,112 @@ function initializeOverlay() {
     console.log('VizualAI: Overlay initialization complete');
 }
 
+// Agent view logic
+function switchToAgentView() {
+    try {
+        const root = document.getElementById('vizualai-floating-overlay');
+        if (!root) return;
+        root.classList.add('agent-mode');
+        wireAgentHandlers();
+    } catch (e) {
+        console.error('Failed to switch to agent view:', e);
+    }
+}
+
+function switchToMainView() {
+    try {
+        const root = document.getElementById('vizualai-floating-overlay');
+        if (!root) return;
+        root.classList.remove('agent-mode');
+    } catch (e) {
+        console.error('Failed to switch to main view:', e);
+    }
+}
+
+function wireAgentHandlers() {
+    const backBtn = overlayContainer.querySelector('#viz-agent-back-btn');
+    if (backBtn) backBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); switchToMainView(); };
+
+    const workdirEl = overlayContainer.querySelector('#viz-workdir');
+    const descEl = overlayContainer.querySelector('#viz-description');
+    const runnerEl = overlayContainer.querySelector('#viz-runner');
+    const statusEl = overlayContainer.querySelector('#viz-status');
+    const btn = overlayContainer.querySelector('#viz-record-run-btn');
+
+    function log(msg) {
+        const ts = new Date().toLocaleTimeString();
+        statusEl.textContent += `[${ts}] ${msg}\n`;
+        statusEl.scrollTop = statusEl.scrollHeight;
+    }
+
+    async function getServerSettings() {
+        return new Promise((resolve) => {
+            chrome.storage.local.get(['browserConnectorSettings'], (result) => {
+                resolve(result.browserConnectorSettings || { serverHost: 'localhost', serverPort: 3025 });
+            });
+        });
+    }
+
+    async function postJson(url, body) {
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+    }
+
+    async function getActiveTabId() {
+        return new Promise((resolve) => {
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => resolve(tabs && tabs[0] ? tabs[0].id : null));
+        });
+    }
+
+    if (btn) {
+        btn.onclick = async () => {
+            try {
+                statusEl.textContent = '';
+                const tabId = await getActiveTabId();
+                if (!tabId) { log('No active tab'); return; }
+
+                const workdir = (workdirEl.value || '').trim();
+                if (!workdir) { log('Please set workdir'); return; }
+                const settings = await getServerSettings();
+                await postJson(`http://${settings.serverHost}:${settings.serverPort}/viz/settings`, { workdir, viz: { runner: runnerEl.value } });
+                log(`Settings updated: workdir=${workdir}, runner=${runnerEl.value}`);
+
+                const description = (descEl.value || '').trim();
+                // Start recording from popup flow
+                await new Promise((resolve) => {
+                    chrome.runtime.sendMessage({ type: 'START_TAB_RECORDING_FROM_POPUP', tabId, includeMicrophone: true, description }, () => resolve(null));
+                });
+                log('Recording started');
+
+                // Wait for recording saved
+                const stopResult = await new Promise((resolve) => {
+                    const listener = (message) => {
+                        if (message && message.type === 'POPUP_RECORDING_SAVED') {
+                            chrome.runtime.onMessage.removeListener(listener);
+                            resolve(message);
+                        }
+                    };
+                    chrome.runtime.onMessage.addListener(listener);
+                });
+                const recordingPath = stopResult.path;
+                log(`Recording saved: ${recordingPath}`);
+
+                // Submit analyze-and-run
+                log('Submitting analyze-and-run');
+                const resp = await postJson(`http://${settings.serverHost}:${settings.serverPort}/viz/analyze-and-run`, {
+                    recordingPath,
+                    description,
+                    runner: runnerEl.value,
+                    immediate: true
+                });
+                log(`Analysis queued: ${resp.analysisId}`);
+            } catch (e) {
+                log(`Error: ${e.message}`);
+            }
+        };
+    }
+}
 // Event handlers
 function handleScreenshot() {
     getCurrentTabId().then(async tabId => {
